@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GasFinder RS | Melhores preços de combustível</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="shortcut icon" href="Logo-Gas-Finder-2.0.png" type="image/x-icon">
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="screen active">
+    <div class="auth-bg">
+      <div class="fuel-animation">
+        <div class="drop d1"></div>
+        <div class="drop d2"></div>
+        <div class="drop d3"></div>
+      </div>
+      <div class="auth-panel">
+        <div class="brand-mark">
+          <div class="brand-icon"><i class="fas fa-gas-pump"></i></div>
+          <div class="brand-text">Gas<span>Finder</span><em>RS</em></div>
+        </div>
+        <h1>Bom ter você de volta</h1>
+        <p class="auth-sub">Preços reais, postos confiáveis no RS</p>
+        <form id="loginForm" class="auth-form">
+          <div class="field">
+            <label>E-mail</label>
+            <div class="field-wrap">
+              <i class="fas fa-envelope"></i>
+              <input type="email" id="loginEmail" placeholder="seu@email.com" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>Senha</label>
+            <div class="field-wrap">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="loginPassword" placeholder="••••••••" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary full">Entrar <i class="fas fa-arrow-right"></i></button>
+        </form>
+        <p class="switch-link">Não tem conta? <a href="#" id="showRegisterBtn">Criar conta grátis</a></p>
+        <p class="demo-note"><i class="fas fa-info-circle"></i> Use qualquer e-mail e senha para acessar</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- REGISTER SCREEN -->
+  <div id="registerScreen" class="screen">
+    <div class="auth-bg">
+      <div class="fuel-animation">
+        <div class="drop d1"></div>
+        <div class="drop d2"></div>
+        <div class="drop d3"></div>
+      </div>
+      <div class="auth-panel">
+        <div class="brand-mark">
+          <div class="brand-icon"><i class="fas fa-gas-pump"></i></div>
+          <div class="brand-text">Gas<span>Finder</span><em>RS</em></div>
+        </div>
+        <h1>Criar conta</h1>
+        <p class="auth-sub">Rápido e gratuito</p>
+        <form id="registerForm" class="auth-form">
+          <div class="field">
+            <label>Nome completo</label>
+            <div class="field-wrap">
+              <i class="fas fa-user"></i>
+              <input type="text" id="regName" placeholder="Seu nome" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>E-mail</label>
+            <div class="field-wrap">
+              <i class="fas fa-envelope"></i>
+              <input type="email" id="regEmail" placeholder="seu@email.com" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>Senha</label>
+            <div class="field-wrap">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="regPassword" placeholder="Mínimo 6 caracteres" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>Confirmar senha</label>
+            <div class="field-wrap">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="regConfirmPassword" placeholder="Repita a senha" required>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary full">Cadastrar <i class="fas fa-check"></i></button>
+        </form>
+        <p class="switch-link">Já tem conta? <a href="#" id="showLoginBtn">Entrar</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP SCREEN -->
+  <div id="appScreen" class="screen">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-inner">
+        <div class="logo">
+          <i class="fas fa-gas-pump"></i>
+          <span>Gas<b>Finder</b></span>
+          <span class="badge-rs">RS</span>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="search">
+            <i class="fas fa-search"></i><span>Pesquisar</span>
+          </button>
+          <button class="nav-item" data-view="favorites">
+            <i class="fas fa-heart"></i><span>Favoritos</span>
+          </button>
+          <button class="nav-item" data-view="report">
+            <i class="fas fa-bullhorn"></i><span>Reportar</span>
+          </button>
+          <button class="nav-item" id="themeBtn">
+            <i class="fas fa-moon"></i>
+          </button>
+          <button class="nav-item logout-btn" id="logoutBtn">
+            <i class="fas fa-sign-out-alt"></i><span>Sair</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <!-- MAIN -->
+    <main>
+
+      <!-- SEARCH VIEW -->
+      <div id="searchView" class="view active">
+
+        <!-- HERO -->
+        <div id="heroSection" class="hero">
+          <div class="hero-content">
+            <div class="hero-eyebrow"><i class="fas fa-map-marker-alt"></i> Vera Cruz & Santa Cruz do Sul — RS</div>
+            <h2 class="hero-title">Encontre o <span>combustível mais barato</span> perto de você</h2>
+            <p class="hero-desc">Preços atualizados em tempo real diretamente dos postos da região.</p>
+            <div class="city-cards">
+              <button class="city-card" data-city="Vera Cruz">
+                <div class="city-icon"><i class="fas fa-city"></i></div>
+                <div class="city-info">
+                  <strong>Vera Cruz</strong>
+                  <span id="vcCount">5 postos</span>
+                </div>
+                <i class="fas fa-chevron-right"></i>
+              </button>
+              <button class="city-card" data-city="Santa Cruz do Sul">
+                <div class="city-icon"><i class="fas fa-city"></i></div>
+                <div class="city-info">
+                  <strong>Santa Cruz do Sul</strong>
+                  <span id="scsCount">13 postos</span>
+                </div>
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+            <div class="hero-search">
+              <div class="search-wrap">
+                <i class="fas fa-search"></i>
+                <input type="text" id="heroSearchInput" placeholder="Buscar posto pelo nome..." autocomplete="off">
+                <button id="heroGeoBtn" class="geo-btn" title="Usar minha localização">
+                  <i class="fas fa-location-arrow"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="hero-stats">
+            <div class="stat-pill"><i class="fas fa-sync-alt"></i> Atualizado agora</div>
+            <div class="stat-pill"><span id="totalPostos">18</span> postos cadastrados</div>
+            <div class="stat-pill"><i class="fas fa-tag"></i> <span id="totalPromos">7</span> promoções ativas</div>
+          </div>
+        </div>
+
+        <!-- RESULTS AREA -->
+        <div id="resultsArea" style="display:none">
+          <!-- Sticky search bar -->
+          <div class="sticky-bar">
+            <div class="sticky-inner">
+              <button id="backBtn" class="back-btn"><i class="fas fa-arrow-left"></i></button>
+              <div class="sticky-city" id="stickyCity">Vera Cruz</div>
+              <div class="filters-row">
+                <button class="filter-chip active" data-sort="price"><i class="fas fa-dollar-sign"></i> Preço</button>
+                <button class="filter-chip" data-sort="name"><i class="fas fa-sort-alpha-down"></i> Nome</button>
+                <button class="filter-chip" data-filter="promo"><i class="fas fa-tag"></i> Promoções</button>
+                <button class="filter-chip" data-fuel="gasolina">Gasolina</button>
+                <button class="filter-chip" data-fuel="etanol">Etanol</button>
+                <button class="filter-chip" data-fuel="diesel">Diesel</button>
+                <button class="update-btn" id="updatePricesBtn"><i class="fas fa-sync-alt"></i> Atualizar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ranking strip -->
+          <div class="ranking-strip">
+            <div class="ranking-label"><i class="fas fa-trophy"></i> Mais baratos agora</div>
+            <div class="ranking-items" id="rankingStrip"></div>
+          </div>
+
+          <!-- Grid -->
+          <div class="container">
+            <div class="grid-header">
+              <span id="gridCount">0 postos encontrados</span>
+              <div class="compare-row">
+                <button class="btn-outline" id="compareBtn" disabled>
+                  <i class="fas fa-balance-scale"></i> Comparar (<span id="cmpCount">0</span>/3)
+                </button>
+                <button class="btn-ghost" id="clearCmpBtn" style="display:none"><i class="fas fa-times"></i></button>
+              </div>
+            </div>
+            <div id="loader" class="loader-wrap" style="display:none">
+              <div class="spinner"></div>
+              <p>Buscando preços...</p>
+            </div>
+            <div class="stations-grid" id="stationsGrid"></div>
+            <div id="noResults" class="empty-state" style="display:none">
+              <i class="fas fa-gas-pump"></i>
+              <h3>Nenhum posto encontrado</h3>
+              <p>Tente outro filtro ou cidade.</p>
+            </div>
+          </div>
+
+          <!-- Promos section -->
+          <div class="promos-section" id="promosSection">
+            <div class="container">
+              <h3 class="section-title"><i class="fas fa-fire"></i> Promoções ativas</h3>
+              <div class="promos-grid" id="promosGrid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FAVORITES VIEW -->
+      <div id="favoritesView" class="view">
+        <div class="container">
+          <div class="page-header">
+            <h2><i class="fas fa-heart"></i> Favoritos</h2>
+            <p>Seus postos salvos para acesso rápido</p>
+          </div>
+          <div class="stations-grid" id="favGrid"></div>
+          <div id="noFavs" class="empty-state" style="display:none">
+            <i class="fas fa-heart-broken"></i>
+            <h3>Nenhum favorito ainda</h3>
+            <p>Toque no <i class="fas fa-heart"></i> nos cards para salvar postos.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORT VIEW -->
+      <div id="reportView" class="view">
+        <div class="container">
+          <div class="page-header">
+            <h2><i class="fas fa-bullhorn"></i> Reportar preço</h2>
+            <p>Ajude a comunidade com informações atualizadas</p>
+          </div>
+          <div class="report-card">
+            <form id="reportForm">
+              <div class="field">
+                <label>Cidade</label>
+                <div class="field-wrap">
+                  <i class="fas fa-city"></i>
+                  <select id="reportCity">
+                    <option value="Vera Cruz">Vera Cruz</option>
+                    <option value="Santa Cruz do Sul">Santa Cruz do Sul</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label>Posto</label>
+                <div class="field-wrap">
+                  <i class="fas fa-gas-pump"></i>
+                  <select id="reportStation"></select>
+                </div>
+              </div>
+              <div class="field">
+                <label>Combustível</label>
+                <div class="field-wrap">
+                  <i class="fas fa-fill-drip"></i>
+                  <select id="reportFuel">
+                    <option value="gasolinaComum">Gasolina Comum</option>
+                    <option value="gasolinaAditivada">Gasolina Aditivada</option>
+                    <option value="etanol">Etanol</option>
+                    <option value="diesel">Diesel</option>
+                  </select>
+                </div>
+              </div>
+              <div class="prices-grid-input">
+                <div class="field">
+                  <label>Preço (R$)</label>
+                  <div class="field-wrap">
+                    <i class="fas fa-dollar-sign"></i>
+                    <input type="number" id="reportPrice" step="0.01" min="1" placeholder="Ex: 5.89">
+                  </div>
+                </div>
+                <div class="field">
+                  <label>É promoção?</label>
+                  <div class="field-wrap promo-toggle">
+                    <label class="toggle-label">
+                      <input type="checkbox" id="reportIsPromo">
+                      <span class="toggle-sw"></span>
+                      Preço promocional
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="field" id="promoValidityField" style="display:none">
+                <label>Válido até (horário)</label>
+                <div class="field-wrap">
+                  <i class="fas fa-clock"></i>
+                  <input type="time" id="reportValidity" value="22:00">
+                </div>
+              </div>
+              <button type="submit" class="btn-primary full">
+                <i class="fas fa-paper-plane"></i> Enviar informação
+              </button>
+            </form>
+            <div id="reportSuccess" class="success-msg" style="display:none">
+              <i class="fas fa-check-circle"></i> Obrigado! Preço reportado com sucesso.
+            </div>
+          </div>
+
+          <div class="calculator-card">
+            <h3><i class="fas fa-calculator"></i> Calculadora de abastecimento</h3>
+            <div class="calc-grid">
+              <div class="field">
+                <label>Preço por litro (R$)</label>
+                <div class="field-wrap">
+                  <i class="fas fa-dollar-sign"></i>
+                  <input type="number" id="calcPrice" step="0.01" placeholder="5.89">
+                </div>
+              </div>
+              <div class="field">
+                <label>Litros a abastecer</label>
+                <div class="field-wrap">
+                  <i class="fas fa-fill-drip"></i>
+                  <input type="number" id="calcLiters" step="0.5" placeholder="40">
+                </div>
+              </div>
+            </div>
+            <button class="btn-primary" id="calcBtn"><i class="fas fa-calculator"></i> Calcular</button>
+            <div id="calcResult" class="calc-result" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- COMPARE MODAL -->
+    <div id="compareModal" class="modal-overlay" style="display:none">
+      <div class="modal-box modal-wide">
+        <button class="modal-close" id="closeCmpModal"><i class="fas fa-times"></i></button>
+        <h2><i class="fas fa-balance-scale"></i> Comparar postos</h2>
+        <div id="compareContent" class="compare-grid"></div>
+      </div>
+    </div>
+
+    <!-- PRICE UPDATE MODAL -->
+    <div id="updateModal" class="modal-overlay" style="display:none">
+      <div class="modal-box">
+        <button class="modal-close" id="closeUpdateModal"><i class="fas fa-times"></i></button>
+        <h2><i class="fas fa-sync-alt"></i> Atualizar preços</h2>
+        <p class="modal-desc">Selecione um posto e atualize os preços diretamente:</p>
+        <div class="field">
+          <label>Posto</label>
+          <div class="field-wrap">
+            <i class="fas fa-gas-pump"></i>
+            <select id="updateStation"></select>
+          </div>
+        </div>
+        <div class="update-prices-grid">
+          <div class="field">
+            <label>Gasolina (R$)</label>
+            <input type="number" class="update-input" id="upGas" step="0.01">
+          </div>
+          <div class="field">
+            <label>Aditivada (R$)</label>
+            <input type="number" class="update-input" id="upAdit" step="0.01">
+          </div>
+          <div class="field">
+            <label>Etanol (R$)</label>
+            <input type="number" class="update-input" id="upEtanol" step="0.01">
+          </div>
+          <div class="field">
+            <label>Diesel (R$)</label>
+            <input type="number" class="update-input" id="upDiesel" step="0.01">
+          </div>
+        </div>
+        <button class="btn-primary full" id="saveUpdateBtn"><i class="fas fa-save"></i> Salvar preços</button>
+        <div id="updateSuccess" class="success-msg" style="display:none">
+          <i class="fas fa-check-circle"></i> Preços atualizados!
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-logo"><i class="fas fa-gas-pump"></i> GasFinder RS</div>
+        <div class="footer-note">Preços colaborativos — ajude reportando valores atualizados</div>
+        <div class="footer-copy">© 2026 GasFinder RS</div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
