@@ -284,10 +284,30 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   color: var(--text2);
   cursor: pointer;
   transition: all 0.2s;
+  position: relative;
 }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--accent-light); color: var(--accent); }
 .nav-item.logout-btn:hover { background: var(--red-light); color: var(--red); }
+
+.notif-badge {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  background: var(--red);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 10px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+.notif-badge.has-notifs { display: flex; }
 
 /* ===== VIEWS ===== */
 .view { display: none; animation: fadeIn 0.3s ease; }
@@ -883,7 +903,6 @@ body.dark .promos-section { background: rgba(217,119,6,0.05); }
 }
 .calculator-card h3 i { color: var(--accent); }
 
-/* In-app fields (white background) */
 .report-card .field label, .calculator-card .field label, .modal-box .field label {
   color: var(--text2);
   font-size: 0.78rem;
@@ -1073,6 +1092,101 @@ input:checked + .toggle-sw::after { transform: translateX(18px); }
 .footer-logo i { color: var(--accent); }
 .footer-note { color: var(--text3); }
 .footer-copy { color: var(--text3); }
+
+/* ===== ROLE SELECTION ===== */
+.role-panel { max-width: 520px; }
+
+.role-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.role-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #fff;
+  font-family: var(--font);
+  text-align: left;
+  width: 100%;
+}
+.role-card:hover {
+  background: rgba(0,196,122,0.12);
+  border-color: rgba(0,196,122,0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,196,122,0.15);
+}
+
+.role-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(0,196,122,0.15);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.role-info { flex: 1; }
+.role-info strong { display: block; font-size: 1rem; font-weight: 700; margin-bottom: 0.2rem; }
+.role-info span { display: block; font-size: 0.8rem; color: rgba(255,255,255,0.45); }
+
+.role-card > .fa-chevron-right { color: rgba(255,255,255,0.3); font-size: 0.85rem; flex-shrink: 0; }
+
+/* ===== NOTIFICATIONS LIST ===== */
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+}
+
+.notif-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.notif-item:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.notif-item.unread { border-left: 4px solid var(--accent); background: var(--accent-light); }
+
+.notif-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.notif-icon.price-up { background: var(--red-light); color: var(--red); }
+.notif-icon.price-down { background: var(--accent-light); color: var(--accent-dark); }
+.notif-icon.promo { background: var(--amber-light); color: var(--amber); }
+
+.notif-content { flex: 1; }
+.notif-title { font-weight: 600; font-size: 0.9rem; color: var(--text); margin-bottom: 0.2rem; }
+.notif-desc { font-size: 0.8rem; color: var(--text2); line-height: 1.4; }
+.notif-time { font-size: 0.7rem; color: var(--text3); margin-top: 0.35rem; display: flex; align-items: center; gap: 0.25rem; }
+
+/* ===== MANAGE VIEW ===== */
+#manageStationSection .report-card { border-left: 4px solid var(--accent); }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
