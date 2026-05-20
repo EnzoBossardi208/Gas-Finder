@@ -478,6 +478,7 @@ function renderStations(stations) {
       etanolHtml = `<span class="price-val">R$ ${s.etanol.toFixed(2)}</span>`;
     }
 
+    // ========== ALTERAÇÃO 1: Botões condicionais nos cards de busca ==========
     return `
       <div class="station-card${isCheapest ? ' is-cheapest' : ''}" data-id="${s.id}">
         <div class="card-top">
@@ -516,12 +517,16 @@ function renderStations(stations) {
           </div>
           <div class="card-actions">
             <input type="checkbox" class="cmp-check" data-id="${s.id}" title="Adicionar à comparação" ${inCompare ? 'checked' : ''}>
-            <a href="${s.directionsLink}" target="_blank" class="maps-btn" title="Abrir rota no Google Maps">
-              <i class="fas fa-route"></i> Rota
-            </a>
-            <a href="${s.mapsLink}" target="_blank" class="maps-btn" style="background:#1967d2" title="Ver no Google Maps">
-              <i class="fas fa-map-marker-alt"></i> Maps
-            </a>
+            ${s.directionsLink ? `
+              <a href="${s.directionsLink}" target="_blank" class="maps-btn" title="Abrir rota no Google Maps">
+                <i class="fas fa-route"></i> Rota
+              </a>
+            ` : ''}
+            ${s.mapsLink ? `
+              <a href="${s.mapsLink}" target="_blank" class="maps-btn" style="background:#1967d2" title="Ver no Google Maps">
+                <i class="fas fa-map-marker-alt"></i> Maps
+              </a>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -595,6 +600,8 @@ function renderFavorites() {
   const tempGrid = document.createElement('div');
   tempGrid.className = 'stations-grid';
   const cheapestGas = Math.min(...favPostos.map(s => s.gasolinaComum));
+  
+  // ========== ALTERAÇÃO 2: Botões condicionais nos cards de favoritos ==========
   tempGrid.innerHTML = favPostos.map(s => {
     const isCheapest = s.gasolinaComum === cheapestGas;
     return `
@@ -614,13 +621,18 @@ function renderFavorites() {
         <div class="card-bottom">
           <div class="card-meta"><span><i class="fas fa-clock"></i> ${s.openingHours}</span></div>
           <div class="card-actions">
-            <a href="${s.directionsLink}" target="_blank" class="maps-btn"><i class="fas fa-route"></i> Rota</a>
-            <a href="${s.mapsLink}" target="_blank" class="maps-btn" style="background:#1967d2"><i class="fas fa-map-marker-alt"></i> Maps</a>
+            ${s.directionsLink ? `
+              <a href="${s.directionsLink}" target="_blank" class="maps-btn"><i class="fas fa-route"></i> Rota</a>
+            ` : ''}
+            ${s.mapsLink ? `
+              <a href="${s.mapsLink}" target="_blank" class="maps-btn" style="background:#1967d2"><i class="fas fa-map-marker-alt"></i> Maps</a>
+            ` : ''}
           </div>
         </div>
       </div>
     `;
   }).join('');
+  
   favGrid.innerHTML = tempGrid.innerHTML;
   favGrid.querySelectorAll('.fav-btn').forEach(btn => {
     btn.addEventListener('click', () => toggleFavorite(btn.dataset.id));

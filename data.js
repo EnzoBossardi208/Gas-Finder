@@ -5,11 +5,12 @@ const POSTOS_DATA = {
   "Vera Cruz": [
     {
       id: "vc-001",
-      name: "Posto Ipiranga – Central",
+      name: "Posto RJ CHARRUA",
       brand: "Ipiranga",
-      address: "Rua Claudio Manoel, 325 – Centro, Vera Cruz – RS",
-      lat: -29.71498,
-      lng: -52.50827,
+      address: "R. Ernesto Wild, 330 - Centro, Vera Cruz - RS, 96880-000",
+      lat: -29.7123762,
+      lng: -52.5035573,
+      customMapsLink: "https://maps.app.goo.gl/my8aZrMCkHHLbrNX8",
       gasolinaComum: 5.49,
       gasolinaAditivada: 5.79,
       etanol: 3.89,
@@ -18,33 +19,35 @@ const POSTOS_DATA = {
       hasPromotion: true,
       promotionFuel: "gasolinaComum",
       promoPrice: 5.29,
-      promoValidity: "22:00",
-      openingHours: "07:00 – 22:00",
-      phone: "(51) 3720-0001"
+      promoValidity: "--",
+      openingHours: "06:00 – 20:40",
+      phone: "(51) 3718-4026"
     },
     {
       id: "vc-002",
-      name: "Auto Posto Vera Cruz",
+      name: "Posto Central",
       brand: "Bandeira Branca",
-      address: "Rua Intendente Koelzer, 454 – Centro, Vera Cruz – RS",
-      lat: -29.71853,
-      lng: -52.51498,
+      address: "R. Roberto Gruendling, 81 - Centro, Vera Cruz - RS, 96880-000",
+      lat: -29.716992,
+      lng: -52.5015172,
+      customMapsLink: "https://maps.app.goo.gl/FB5DMwVfNJ5HnrLU9",
       gasolinaComum: 5.39,
       gasolinaAditivada: 5.69,
       etanol: 3.79,
       diesel: 5.09,
       dieselS10: 5.19,
       hasPromotion: false,
-      openingHours: "24h",
-      phone: "(51) 3720-0002"
+      openingHours: "07:00 - 21:00",
+      phone: "(51) 3718-2150"
     },
     {
       id: "vc-003",
-      name: "Posto do Icó – Petrobras",
+      name: "Posto do Icó – Theisen & Hickmann",
       brand: "Petrobras",
-      address: "Rua Roberto Gruendling, 439 – Centro, Vera Cruz – RS",
-      lat: -29.71201,
-      lng: -52.50098,
+      address: "R. Roberto Gruendling, 439 - Centro, Vera Cruz - RS, 96880-000",
+      lat: -29.7178905,
+      lng: -52.4972841,
+      customMapsLink: "https://maps.app.goo.gl/gZ78Vvh7PiFjmPP17",
       gasolinaComum: 5.59,
       gasolinaAditivada: 5.89,
       etanol: 3.99,
@@ -54,16 +57,17 @@ const POSTOS_DATA = {
       promotionFuel: "etanol",
       promoPrice: 3.69,
       promoValidity: "21:00",
-      openingHours: "06:00 – 23:00",
-      phone: "(51) 3720-0003"
+      openingHours: "07:00 – 23:00",
+      phone: "(51) 3718 - 1658"
     },
     {
       id: "vc-004",
-      name: "Posto Forsthofer",
-      brand: "Bandeira Branca",
-      address: "Av. Nestor Frederico Henn, 1645 – Centro, Vera Cruz – RS",
-      lat: -29.72197,
-      lng: -52.52098,
+      name: "Posto Ipiranga",
+      brand: "Ipiranga",
+      address: "AR. Cláudio Manoel, 325 - Centro, Vera Cruz - RS, 96880-000",
+      lat: -29.7168651,
+      lng: -52.5077723,
+      customMapsLink: "https://maps.app.goo.gl/gMppbNiqcTgFMn8cA",
       gasolinaComum: 5.45,
       gasolinaAditivada: 5.75,
       etanol: 3.85,
@@ -71,15 +75,16 @@ const POSTOS_DATA = {
       dieselS10: 5.05,
       hasPromotion: false,
       openingHours: "06:00 – 22:00",
-      phone: "(51) 3720-0004"
+      phone: "(51) 3718-1851"
     },
     {
       id: "vc-005",
-      name: "Posto RJ Combustíveis",
+      name: "Roselei H. Theisen & Cia",
       brand: "Bandeira Branca",
-      address: "Rua Ernesto Wild, 330 – Centro, Vera Cruz – RS",
-      lat: -29.71052,
-      lng: -52.50451,
+      address: "R. Intendente Koelzer, 454 - Centro, Vera Cruz - RS, 96880-000",
+      lat: -29.7182047,
+      lng: -52.5147745,
+      customMapsLink: "https://maps.app.goo.gl/buHfkx9CzTqYddFZ6",
       gasolinaComum: 5.55,
       gasolinaAditivada: 5.85,
       etanol: 3.95,
@@ -90,8 +95,29 @@ const POSTOS_DATA = {
       promoPrice: 5.55,
       promoValidity: "20:00",
       openingHours: "06:30 – 21:30",
-      phone: "(51) 3720-0005"
-    }
+      phone: "Ausente"
+    },
+    {
+      id: "vc-006",
+      name: "Postos Central Santa Lúcia Vera Cruz",
+      brand: "Posto de combustível",
+      address: "Arco Íris, Vera Cruz - RS, 96880-000",
+      lat: -29.7182047,
+      lng: -52.5147745,
+      customMapsLink: "https://maps.app.goo.gl/buHfkx9CzTqYddFZ6",
+      gasolinaComum: 5.55,
+      gasolinaAditivada: 5.85,
+      etanol: 3.95,
+      diesel: 5.05,
+      dieselS10: 5.15,
+      hasPromotion: true,
+      promotionFuel: "gasolinaAditivada",
+      promoPrice: 5.55,
+      promoValidity: "20:00",
+      openingHours: "06:30 – 21:30",
+      phone: "Ausente"
+    },
+
   ],
   "Santa Cruz do Sul": [
     {
@@ -326,14 +352,32 @@ const POSTOS_DATA = {
   ]
 };
 
-// Gera o link exato do Google Maps usando coordenadas precisas
+// Gera o link do Google Maps (link personalizado PRIORIDADE, depois coordenadas)
 function getMapsLink(posto) {
-  return `https://www.google.com/maps?q=${posto.lat},${posto.lng}&zoom=17`;
+  // 1ª opção: link personalizado do Maps
+  if (posto.customMapsLink && posto.customMapsLink.trim() !== '') {
+    return posto.customMapsLink;
+  }
+  // 2ª opção: coordenadas (lat e lng)
+  if (posto.lat !== undefined && posto.lng !== undefined) {
+    return `https://www.google.com/maps?q=${posto.lat},${posto.lng}&zoom=17`;
+  }
+  // Se não tiver nenhum, retorna vazio (botão será ocultado)
+  return '';
 }
 
-// Gera o link de navegação turn-by-turn
+// Gera o link de navegação (link personalizado PRIORIDADE, depois coordenadas)
 function getDirectionsLink(posto) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${posto.lat},${posto.lng}&travelmode=driving`;
+  // 1ª opção: link personalizado de rota
+  if (posto.customDirectionsLink && posto.customDirectionsLink.trim() !== '') {
+    return posto.customDirectionsLink;
+  }
+  // 2ª opção: coordenadas (lat e lng)
+  if (posto.lat !== undefined && posto.lng !== undefined) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${posto.lat},${posto.lng}&travelmode=driving`;
+  }
+  // Se não tiver nenhum, retorna vazio (botão será ocultado)
+  return '';
 }
 
 // Retorna todos os postos de uma cidade, com IDs e links já gerados
