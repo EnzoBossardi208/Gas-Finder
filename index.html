@@ -27,14 +27,14 @@
         <p class="auth-sub">Preços reais, postos confiáveis no RS</p>
         <form id="loginForm" class="auth-form">
           <div class="field">
-            <label>E-mail</label>
+            <label class="field-text">E-mail</label>
             <div class="field-wrap">
               <i class="fas fa-envelope"></i>
               <input type="email" id="loginEmail" placeholder="seu@email.com" required>
             </div>
           </div>
           <div class="field">
-            <label>Senha</label>
+            <label class="field-text">Senha</label>
             <div class="field-wrap">
               <i class="fas fa-lock"></i>
               <input type="password" id="loginPassword" placeholder="••••••••" required>
@@ -43,7 +43,7 @@
           <button type="submit" class="btn-primary full">Entrar <i class="fas fa-arrow-right"></i></button>
         </form>
         <p class="switch-link">Não tem conta? <a href="#" id="showRegisterBtn">Criar conta grátis</a></p>
-        <p class="demo-note"><i class="fas fa-info-circle"></i> Use qualquer e-mail e senha para acessar</p>
+        <p class="demo-note"><i class="fas fa-info-circle"></i> Utilize seu melhor e-mail</p>
       </div>
     </div>
   </div>
@@ -272,7 +272,7 @@
           <div class="report-card">
             <form id="reportForm">
               <div class="field">
-                <label>Cidade</label>
+                <label class="field-text">Cidade</label>
                 <div class="field-wrap">
                   <i class="fas fa-city"></i>
                   <select id="reportCity">
@@ -282,14 +282,14 @@
                 </div>
               </div>
               <div class="field">
-                <label>Posto</label>
+                <label class="field-text">Posto</label>
                 <div class="field-wrap">
                   <i class="fas fa-gas-pump"></i>
                   <select id="reportStation"></select>
                 </div>
               </div>
               <div class="field">
-                <label>Combustível</label>
+                <label class="field-text">Combustível</label>
                 <div class="field-wrap">
                   <i class="fas fa-fill-drip"></i>
                   <select id="reportFuel">
@@ -302,14 +302,14 @@
               </div>
               <div class="prices-grid-input">
                 <div class="field">
-                  <label>Preço (R$)</label>
+                  <label class="field-text">Preço (R$)</label>
                   <div class="field-wrap">
                     <i class="fas fa-dollar-sign"></i>
                     <input type="number" id="reportPrice" step="0.01" min="1" placeholder="Ex: 5.89">
                   </div>
                 </div>
                 <div class="field">
-                  <label>É promoção?</label>
+                  <label class="field-text">É promoção?</label>
                   <div class="field-wrap promo-toggle">
                     <label class="toggle-label">
                       <input type="checkbox" id="reportIsPromo">
@@ -334,18 +334,21 @@
               <i class="fas fa-check-circle"></i> Obrigado! Preço reportado com sucesso.
             </div>
           </div>
+
+          <!--  CALCULADORA  -->
+
           <div class="calculator-card">
             <h3><i class="fas fa-calculator"></i> Calculadora de abastecimento</h3>
             <div class="calc-grid">
               <div class="field">
-                <label>Preço por litro (R$)</label>
+                <label class="field-text">Preço por litro (R$)</label>
                 <div class="field-wrap">
                   <i class="fas fa-dollar-sign"></i>
                   <input type="number" id="calcPrice" step="0.01" placeholder="5.89">
                 </div>
               </div>
               <div class="field">
-                <label>Litros a abastecer</label>
+                <label class="field-text">Litros a abastecer</label>
                 <div class="field-wrap">
                   <i class="fas fa-fill-drip"></i>
                   <input type="number" id="calcLiters" step="0.5" placeholder="40">
@@ -389,7 +392,7 @@
             <h3 style="margin-bottom:1rem"><i class="fas fa-hand-pointer"></i> Selecione seu posto</h3>
             <p style="margin-bottom:1rem;color:var(--text2)">Escolha o posto que você gerencia:</p>
             <div class="field">
-              <label>Cidade</label>
+              <label class="field-text">Cidade</label>
               <div class="field-wrap">
                 <i class="fas fa-city"></i>
                 <select id="claimCity">
@@ -399,7 +402,7 @@
               </div>
             </div>
             <div class="field">
-              <label>Posto</label>
+              <label class="field-text">Posto</label>
               <div class="field-wrap">
                 <i class="fas fa-gas-pump"></i>
                 <select id="claimStationSelect"></select>
@@ -543,7 +546,7 @@
     </footer>
   </div>
 
-  <script src="data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
 </body>
 </html>

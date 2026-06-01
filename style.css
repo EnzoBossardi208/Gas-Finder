@@ -139,7 +139,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
 .auth-form { display: flex; flex-direction: column; gap: 1rem; }
 
-.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.field { display: flex; flex-direction: column; gap: 2rem; }
 .field label { font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.05em; }
 .field-wrap { position: relative; }
 .field-wrap > i {
@@ -170,6 +170,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   background: rgba(0, 196, 122, 0.05);
 }
 .field-wrap input::placeholder { color: rgba(255,255,255,0.25); }
+
+.field-text {
+  position: relative;
+  top: 25px;
+}
 
 /* ===== BUTTONS ===== */
 .btn-primary {
@@ -1206,3 +1211,4 @@ input:checked + .toggle-sw::after { transform: translateX(18px); }
   .footer-inner { flex-direction: column; text-align: center; }
   .hero { padding: 2rem 1rem 1.5rem; }
 }
+
