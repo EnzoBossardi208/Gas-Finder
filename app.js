@@ -70,7 +70,7 @@ async function buscarPostosDoBanco() {
 // 2. ATUALIZA PREÇOS TRAVADO POR SEGURANÇA (DONO SÓ EDITA O DELE)
 async function atualizarPrecosNoBanco(codigoPosto, novosDados) {
     // Se for o admin de testes local, permite atualizar sem checar dono_id rígido do Supabase Auth
-    if (currentUser && currentUser.email === 'admin@gasfinder.com') {
+    if (currentUser && currentUser.role === 'admin') {
         const { error } = await clienteSupabase
             .from('postos')
             .update({
@@ -123,7 +123,7 @@ async function atualizarPrecosNoBanco(codigoPosto, novosDados) {
 
 // 3. VINCULA POSTO EXISTENTE AO DONO ATUAL
 async function vincularPostoAoDono(codigoPosto) {
-    if (currentUser.email === 'admin@gasfinder.com') return true;
+    if (currentUser && currentUser.role === 'admin') return true;
 
     const { error } = await clienteSupabase
         .from('postos')
@@ -157,7 +157,7 @@ async function criarNovoPostoNoBanco(dados) {
         gasolina_comum: 0, gasolina_aditivada: 0, etanol: 0, diesel: 0, diesel_s10: 0,
         has_promotion: false,
         opening_hours: 'Horário comercial',
-        dono_id: currentUser.email === 'admin@gasfinder.com' ? null : currentUser.uid
+        dono_id: (currentUser && currentUser.role === 'admin') ? null : currentUser.uid
     };
 
     const { error } = await clienteSupabase.from('postos').insert([novoPosto]);
@@ -273,7 +273,7 @@ if (themeBtn) themeBtn.addEventListener('click', themeBtnHandler);
 if (showRegisterBtn) { showRegisterBtn.addEventListener('click', e => { e.preventDefault(); loginScreen.classList.remove('active'); registerScreen.classList.add('active'); }); }
 if (showLoginBtn) { showLoginBtn.addEventListener('click', e => { e.preventDefault(); registerScreen.classList.remove('active'); loginScreen.classList.add('active'); }); }
 
-// FORMULÁRIO DE LOGIN AUTO-GERENCIADO
+// FORMULÁRIO DE LOGIN AUTO-GERENCIADO COM CHECAGEM DE CARGO SECRETA
 if (loginForm) {
   loginForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -282,15 +282,47 @@ if (loginForm) {
 
     if (!email || !password) { showAlert('Preencha todos os campos para continuar.'); return; }
 
-    // Atalho Especial de Administrador para Testes
-    if (email === 'admin@gasfinder.com') {
-        currentUser = { email, name: 'Administrador', role: 'station_owner', uid: 'admin-local-id' };
+    const btnTextoOriginal = loginForm.querySelector('button[type="submit"]').textContent;
+    loginForm.querySelector('button[type="submit"]').textContent = 'Autenticando...';
+
+    // Login Real via Supabase Auth
+    const { data, error } = await clienteSupabase.auth.signInWithPassword({ email, password });
+    loginForm.querySelector('button[type="submit"]').textContent = btnTextoOriginal;
+
+    if (error) {
+        showAlert('E-mail ou senha inválidos. Tente novamente.');
+        return;
+    }
+
+    // 🌟 NOVA CHECAGEM PRIVADA: Verifica se o usuário tem o cargo de admin nos metadados ocultos do banco
+    if (data.user && data.user.user_metadata && data.user.user_metadata.role === 'admin') {
+        currentUser = { 
+            email: data.user.email, 
+            name: 'Administrador', 
+            role: 'admin', 
+            uid: data.user.id 
+        };
         loginScreen.classList.remove('active');
-        appScreen.classList.add('active');
+        appScreen.classList.add('active'); // Pula a tela de escolher perfil (vai direto)
+        
+        // Ativa o elemento visual do seu painel administrativo se ele existir no HTML
+        if ($('painel-admin')) $('painel-admin').style.display = 'block';
+        
         initApp();
         showAlert('Logado no Modo Administrador!', 'success');
         return;
     }
+
+    // Fluxo normal para Motoristas e Donos de Posto comuns
+    currentUser = { 
+        email: data.user.email, 
+        name: data.user.email.split('@')[0],
+        uid: data.user.id
+    };
+    loginScreen.classList.remove('active');
+    roleScreen.classList.add('active'); 
+  });
+}
 
     // Login Real via Supabase Auth
     const btnTextoOriginal = loginForm.querySelector('button[type="submit"]').textContent;
@@ -313,8 +345,6 @@ if (loginForm) {
 
     loginScreen.classList.remove('active');
     roleScreen.classList.add('active'); // Direciona para escolher o Perfil do acesso
-  });
-}
 
 // FORMULÁRIO DE CADASTRO REAL
 if (registerForm) {
@@ -393,11 +423,14 @@ function initApp() {
     if(heroSection) heroSection.style.display = '';
     if(resultsArea) resultsArea.style.display = 'none';
     updateHeroStats(); 
-    populateReportCity(); 
+    populateReportCity();
     renderFavorites();
   } else if (currentUser.role === 'station_owner') {
     showView('manage');
     initManageView();
+  } else if (currentUser.role === 'admin') { // 🌟 Adicione este pedaço
+    showView('manage'); 
+    if ($('painel-admin')) $('painel-admin').style.display = 'block';
   }
 }
 
@@ -405,12 +438,13 @@ function initApp() {
 function buildNav() {
   const nav = $('mainNav');
   if(!nav) return;
+  
   if (currentUser.role === 'driver') {
+    // ... mantém seu código atual do driver ...
+  } else if (currentUser.role === 'station_owner' || currentUser.role === 'admin') { // 🌟 Altere esta linha
     nav.innerHTML = `
-      <button class="nav-item active" data-view="search"><i class="fas fa-search"></i><span>Pesquisar</span></button>
-      <button class="nav-item" data-view="favorites"><i class="fas fa-heart"></i><span>Favoritos</span></button>
+      <button class="nav-item active" data-view="manage"><i class="fas fa-store"></i><span>Painel Geral</span></button>
       <button class="nav-item" data-view="notifications" id="notifNavBtn"><i class="fas fa-bell"></i><span>Notificações</span><span class="notif-badge" id="notifBadge">0</span></button>
-      <button class="nav-item" data-view="report"><i class="fas fa-bullhorn"></i><span>Reportar</span></button>
       <button class="nav-item" id="themeBtn"><i class="fas fa-moon"></i></button>
       <button class="nav-item logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></button>
     `;
@@ -1086,5 +1120,21 @@ function showAlert(msg, type = 'error') {
   setTimeout(() => el.remove(), 3500);
 }
 
-// COMENTADO PARA TESTAR FLUXO REAL DE LOGIN/CADASTRO E BLOQUEIOS
-// forcarLoginAdmin();
+// Monitor de Sessão Ativa (Evita deslogar ao apertar F5)
+clienteSupabase.auth.onAuthStateChange(async (event, session) => {
+    if (session && session.user) {
+        const userMetadata = session.user.user_metadata;
+        if (userMetadata && userMetadata.role === 'admin') {
+            currentUser = { 
+                email: session.user.email, 
+                name: 'Administrador', 
+                role: 'admin', 
+                uid: session.user.id 
+            };
+            if ($('painel-admin')) $('painel-admin').style.display = 'block';
+            loginScreen.classList.remove('active');
+            appScreen.classList.add('active');
+            initApp();
+        }
+    }
+});
