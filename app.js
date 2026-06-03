@@ -327,28 +327,6 @@ if (loginForm) {
   });
 }
 
-    // Login Real via Supabase Auth
-    const btnTextoOriginal = loginForm.querySelector('button[type="submit"]').textContent;
-    loginForm.querySelector('button[type="submit"]').textContent = 'Autenticando...';
-
-    const { data, error } = await clienteSupabase.auth.signInWithPassword({ email, password });
-
-    loginForm.querySelector('button[type="submit"]').textContent = btnTextoOriginal;
-
-    if (error) {
-        showAlert('E-mail ou senha inválidos. Tente novamente.');
-        return;
-    }
-
-    currentUser = { 
-        email: data.user.email, 
-        name: data.user.email.split('@')[0],
-        uid: data.user.id
-    };
-
-    loginScreen.classList.remove('active');
-    roleScreen.classList.add('active'); // Direciona para escolher o Perfil do acesso
-
 // FORMULÁRIO DE CADASTRO REAL
 if (registerForm) {
   registerForm.addEventListener('submit', async e => {
