@@ -1125,3 +1125,46 @@ clienteSupabase.auth.onAuthStateChange(async (event, session) => {
         }
     }
 });
+
+
+// ==================== ALTERNADOR DE VISÃO ULTRA SEGURO (ADMIN / MOTORISTA) ====================
+document.addEventListener('DOMContentLoaded', () => {
+    const btnAlternar = document.getElementById('btn-alternar-visao');
+    const adminContainer = document.getElementById('admin-switch-container');
+    
+    // Simula a verificação do admin (adapte para pegar do seu currentUser real quando integrar)
+    // Mostra a barra preta lá em cima se for admin
+    if (adminContainer && currentUser && currentUser.role === 'admin') {
+        adminContainer.style.display = 'flex';
+    }
+
+    if (btnAlternar) {
+        btnAlternar.addEventListener('click', () => {
+            const telaPesquisa = document.getElementById('searchView'); // Visão Motorista
+            const telaPosto = document.getElementById('manageView');    // Visão Gerente/Admin
+            
+            // Oculte todas as views primeiro (mesma lógica que sua navegação deve usar)
+            document.querySelectorAll('#appScreen .view').forEach(v => v.classList.remove('active'));
+
+            if (btnAlternar.innerHTML.includes('Motorista')) {
+                // 1. Mudar para a visão do Motorista
+                if (telaPesquisa) telaPesquisa.classList.add('active');
+                
+                // Modifica o botão para modo de retorno
+                btnAlternar.innerHTML = '<i class="fas fa-toggle-off"></i> Voltar para Painel Admin';
+                btnAlternar.style.background = '#dc3545'; // Vermelho
+                
+                showAlert('Visão de Motorista ativada.', 'success');
+            } else {
+                // 2. Voltar para a visão de Admin / Posto
+                if (telaPosto) telaPosto.classList.add('active');
+                
+                // Modifica o botão de volta para o padrão admin
+                btnAlternar.innerHTML = '<i class="fas fa-toggle-on"></i> Mudar para Visão Motorista';
+                btnAlternar.style.background = 'var(--blue, #007bff)'; // Azul
+                
+                showAlert('Visão de Administrador ativada.', 'success');
+            }
+        });
+    }
+});
