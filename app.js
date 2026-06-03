@@ -306,8 +306,11 @@ if (loginForm) {
         appScreen.classList.add('active'); // Pula a tela de escolher perfil (vai direto)
         
         // Ativa o elemento visual do seu painel administrativo se ele existir no HTML
-        if ($('painel-admin')) $('painel-admin').style.display = 'block';
-        
+        const painel = $('painel-admin');
+        if (painel) {
+            painel.style.display = 'block';
+}
+
         initApp();
         showAlert('Logado no Modo Administrador!', 'success');
         return;
@@ -430,7 +433,10 @@ function initApp() {
     initManageView();
   } else if (currentUser.role === 'admin') { // 🌟 Adicione este pedaço
     showView('manage'); 
-    if ($('painel-admin')) $('painel-admin').style.display = 'block';
+    const painel = $('painel-admin');
+    if (painel) {
+    painel.style.display = 'block';
+}
   }
 }
 
@@ -1131,7 +1137,10 @@ clienteSupabase.auth.onAuthStateChange(async (event, session) => {
                 role: 'admin', 
                 uid: session.user.id 
             };
-            if ($('painel-admin')) $('painel-admin').style.display = 'block';
+            const painel = $('painel-admin');
+            if (painel) {
+                painel.style.display = 'block';
+}
             loginScreen.classList.remove('active');
             appScreen.classList.add('active');
             initApp();
