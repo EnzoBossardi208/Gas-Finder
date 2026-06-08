@@ -139,6 +139,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
 .auth-form { display: flex; flex-direction: column; gap: 1rem; }
 
+.auth-bottom {
+  position: relative;
+  top: 25px;
+}
+
 .field { display: flex; flex-direction: column; gap: 2rem; }
 .field label { font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.05em; }
 .field-wrap { position: relative; }
