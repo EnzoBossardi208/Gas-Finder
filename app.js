@@ -493,21 +493,40 @@ function buildNav() {
       <button class="nav-item" id="themeBtn"><i class="fas fa-moon"></i></button>
       <button class="nav-item logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></button>
     `;
-  } else if (currentUser.role === 'station_owner' || currentUser.role === 'admin') {
-    nav.innerHTML = `
-      <button class="nav-item active" data-view="manage"><i class="fas fa-store"></i><span>Painel Geral</span></button>
-      <button class="nav-item" data-view="notifications" id="notifNavBtn"><i class="fas fa-bell"></i><span>Notificações</span><span class="notif-badge" id="notifBadge">0</span></button>
-      <button class="nav-item" id="themeBtn"><i class="fas fa-moon"></i></button>
-      <button class="nav-item logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></button>
-    `;
-  } else {
-    nav.innerHTML = `
-      <button class="nav-item active" data-view="manage"><i class="fas fa-store"></i><span>Meu Posto</span></button>
-      <button class="nav-item" data-view="notifications" id="notifNavBtn"><i class="fas fa-bell"></i><span>Notificações</span><span class="notif-badge" id="notifBadge">0</span></button>
-      <button class="nav-item" id="themeBtn"><i class="fas fa-moon"></i></button>
-      <button class="nav-item logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></button>
-    `;
-  }
+  } else if (data.role === 'station_owner' || data.role === 'admin') {
+        // 1. Configura os dados do Administrador / Dono de Posto
+        currentUser = {
+            email: data.user.email,
+            name: data.station_name || 'Gerente',
+            uid: data.user.id,
+            role: data.role,
+            stationId: data.station_id
+        };
+        
+        // 2. Abre o painel de gestão do Admin
+        $('loginScreen').classList.remove('active');
+        $('manageView').classList.add('active');
+        
+        // 3. CARREGA OS DADOS DO POSTO NA TELA DO ADMIN (As funções que faltavam!)
+        buildNav(); 
+        renderManageView();
+        inicializarAlternadorVisao(); 
+
+    } else {
+        // FLUXO NORMAL: Para qualquer outro e-mail (Motoristas ou utilizadores comuns)
+        currentUser = { 
+            email: data.user.email, 
+            name: data.user.email.split('@')[0],
+            uid: data.user.id,
+            role: 'driver' // Garante que assume o papel de motorista por padrão
+        };
+        
+        // Abre a tela de seleção de papel ou busca direta
+        $('loginScreen').classList.remove('active');
+        $('roleScreen').classList.add('active');
+        
+        buildNav();
+    }
   document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
     btn.addEventListener('click', () => {
       showView(btn.dataset.view);
