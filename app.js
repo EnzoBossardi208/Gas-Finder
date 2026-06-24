@@ -2,6 +2,23 @@ const supabaseUrl = 'https://tteozknocjjbsjjehqel.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0ZW96a25vY2pqYnNqamVocWVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTczOTYsImV4cCI6MjA5NTI5MzM5Nn0.FDRqKNW3BvuyqS4vmYnY3CiD4ug2cPXsZMBDMeEvH_o'; 
 const clienteSupabase = supabase.createClient(supabaseUrl, supabaseKey);
 
+// ==================== FORMATADOR DE TEMPO ====================
+function formatarTempo(dataIso) {
+    if (!dataIso) return "Atualização recente";
+    
+    const data = new Date(dataIso);
+    const agora = new Date();
+    const diffMs = agora - data;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHoras = Math.floor(diffMins / 60);
+    const diffDias = Math.floor(diffHoras / 24);
+
+    if (diffMins < 60) return `Atualizado há ${diffMins === 0 ? 1 : diffMins} min`;
+    if (diffHoras < 24) return `Atualizado há ${diffHoras}h`;
+    if (diffDias === 1) return `Atualizado ontem`;
+    return `Atualizado há ${diffDias} dias`;
+}
+
 // ==================== PONTE COM O SUPABASE ====================
 let POSTOS_DATA = {};
 let CIDADES_DISPONIVEIS = [];
@@ -49,7 +66,8 @@ async function buscarPostosDoBanco() {
             promoValidity: posto.promo_validity,
             openingHours: posto.opening_hours || '24h',
             phone: posto.phone || '',
-            dono_id: posto.dono_id
+            dono_id: posto.dono_id,
+            updated_at: posto.updated_at
         });
     });
 
@@ -82,7 +100,8 @@ async function atualizarPrecosNoBanco(codigoPosto, novosDados) {
                 has_promotion: novosDados.hasPromotion,
                 promotion_fuel: novosDados.promotionFuel,
                 promo_price: parseFloat(novosDados.promoPrice),
-                promo_validity: novosDados.promoValidity
+                promo_validity: novosDados.promoValidity,
+                updated_at: new Date().toISOString()
             })
             .eq('codigo_posto', codigoPosto);
             
@@ -99,18 +118,19 @@ async function atualizarPrecosNoBanco(codigoPosto, novosDados) {
     }
 
     const { error } = await clienteSupabase
-        .from('postos')
-        .update({
-            gasolina_comum: parseFloat(novosDados.gasolinaComum),
-            gasolina_aditivada: parseFloat(novosDados.gasolinaAditivada),
-            etanol: parseFloat(novosDados.etanol),
-            diesel: parseFloat(novosDados.diesel),
-            diesel_s10: parseFloat(novosDados.dieselS10),
-            has_promotion: novosDados.hasPromotion,
-            promotion_fuel: novosDados.promotionFuel,
-            promo_price: parseFloat(novosDados.promoPrice),
-            promo_validity: novosDados.promoValidity
-        })
+            .from('postos')
+            .update({
+                gasolina_comum: parseFloat(novosDados.gasolinaComum),
+                gasolina_aditivada: parseFloat(novosDados.gasolinaAditivada),
+                etanol: parseFloat(novosDados.etanol),
+                diesel: parseFloat(novosDados.diesel),
+                diesel_s10: parseFloat(novosDados.dieselS10),
+                has_promotion: novosDados.hasPromotion,
+                promotion_fuel: novosDados.promotionFuel,
+                promo_price: parseFloat(novosDados.promoPrice),
+                promo_validity: novosDados.promoValidity, // <-- ADICIONE ESTA VÍRGULA AQUI NO FINAL DA LINHA!
+                updated_at: new Date().toISOString()
+            })
         .eq('codigo_posto', codigoPosto);
 
     if (error) {
@@ -144,7 +164,7 @@ async function criarNovoPostoNoBanco(dados) {
     let linkFinalMaps = dados.linkMaps;
     if (!linkFinalMaps) {
         const busca = encodeURIComponent(`${dados.nome} ${dados.endereco} ${dados.cidade}`);
-        linkFinalMaps = `https://www.google.com/maps/search/?api=1&query=${busca}`;
+        linkFinalMaps = `http://googleusercontent.com/maps.google.com/${busca}`;
     }
 
     const novoPosto = {
@@ -273,7 +293,7 @@ if (themeBtn) themeBtn.addEventListener('click', themeBtnHandler);
 if (showRegisterBtn) { showRegisterBtn.addEventListener('click', e => { e.preventDefault(); loginScreen.classList.remove('active'); registerScreen.classList.add('active'); }); }
 if (showLoginBtn) { showLoginBtn.addEventListener('click', e => { e.preventDefault(); registerScreen.classList.remove('active'); loginScreen.classList.add('active'); }); }
 
-// FORMULÁRIO DE LOGIN AUTO-GERENCIADO COM CHECAGEM DE CARGO SECRETA
+// FORMULÁRIO DE LOGIN AUTO-GERENCIADO COM TRAVA DE SEGURANÇA MÁXIMA
 if (loginForm) {
   loginForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -294,38 +314,80 @@ if (loginForm) {
         return;
     }
 
-    // 🌟 NOVA CHECAGEM PRIVADA: Verifica se o usuário tem o cargo de admin nos metadados ocultos do banco
-    if (data.user && data.user.user_metadata && data.user.user_metadata.role === 'admin') {
+    // 🛡️ TRAVA PRIVADA INVIOLÁVEL: Apenas este e-mail específico ganha papel de Admin no Frontend
+   // 🛡️ TRAVA PRIVADA INVIOLÁVEL: Apenas este e-mail específico ganha papel de Admin no clique do Login
+    if (data.user && data.user.email === 'suporte@gasfinder.com') {
         currentUser = { 
             email: data.user.email, 
-            name: 'Administrador', 
+            name: 'Administrador Master', 
             role: 'admin', 
             uid: data.user.id 
         };
-        loginScreen.classList.remove('active');
-        appScreen.classList.add('active'); // Pula a tela de escolher perfil (vai direto)
+        $('loginScreen').classList.remove('active');
+        $('appScreen').classList.add('active'); 
         
-        // Ativa o elemento visual do seu painel administrativo se ele existir no HTML
         const painel = $('painel-admin');
-        if (painel) {
-            painel.style.display = 'block';
-}
+        if (painel) painel.style.display = 'block';
 
         initApp();
-        showAlert('Logado no Modo Administrador!', 'success');
+        if (typeof inicializarAlternadorVisao === 'function') inicializarAlternadorVisao();
+        showAlert('Logado no Modo Administrador Master!', 'success');
         return;
     }
 
-    // Fluxo normal para Motoristas e Donos de Posto comuns
+    // Fluxo normal para qualquer outro e-mail (Motoristas e Donos de Posto comuns)
+    // Fluxo normal para qualquer outro e-mail (Motoristas e Donos de Posto comuns)
     currentUser = { 
         email: data.user.email, 
         name: data.user.email.split('@')[0],
         uid: data.user.id
     };
-    loginScreen.classList.remove('active');
-    roleScreen.classList.add('active'); 
+    $('loginScreen').classList.remove('active'); // <-- ADICIONADO $(' ')
+    $('roleScreen').classList.add('active');   // <-- ADICIONADO $(' ')
   });
 }
+
+// Monitor de Sessão Ativa (Evita deslogar ao apertar F5 com Barreira de Segurança)
+// Monitor de Sessão Ativa (Evita deslogar ao apertar F5 com Barreira de Segurança)
+clienteSupabase.auth.onAuthStateChange(async (event, session) => {
+    if (session && session.user) {
+        // 🛡️ SEGUNDA BARREIRA: Mantém a trava rígida ao recarregar a página
+        if (session.user.email === 'suporte@gasfinder.com') {
+            currentUser = {
+                email: session.user.email,
+                name: 'Administrador Master',
+                role: 'admin',
+                uid: session.user.id
+            };
+            
+            const painel = $('painel-admin');
+            if (painel) {
+                painel.style.display = 'block';
+            }
+            
+            // Corrige as linhas vermelhas e joga o Admin para o Painel Geral
+            if ($('loginScreen')) $('loginScreen').classList.remove('active');
+            if ($('appScreen')) $('appScreen').classList.add('active');
+            
+            // Inicializa a aplicação e o alternador de telas
+            if (typeof initApp === 'function') initApp();
+            if (typeof inicializarAlternadorVisao === 'function') inicializarAlternadorVisao();
+            
+        } else {
+            // Qualquer outro e-mail é forçado a assumir um papel comum por segurança
+            currentUser = {
+                email: session.user.email,
+                name: session.user.email.split('@')[0],
+                uid: session.user.id,
+                role: 'user'
+            };
+            
+            // Joga o usuário comum para a tela de seleção de perfil (Motorista ou Posto)
+            if ($('loginScreen')) $('loginScreen').classList.remove('active');
+            if ($('roleScreen')) $('roleScreen').classList.add('active');
+        }
+    }
+});
 
 // FORMULÁRIO DE CADASTRO REAL
 if (registerForm) {
@@ -424,8 +486,14 @@ function buildNav() {
   if(!nav) return;
   
   if (currentUser.role === 'driver') {
-    // ... mantém seu código atual do driver ...
-  } else if (currentUser.role === 'station_owner' || currentUser.role === 'admin') { // 🌟 Altere esta linha
+    nav.innerHTML = `
+      <button class="nav-item active" data-view="search"><i class="fas fa-search"></i><span>Buscar</span></button>
+      <button class="nav-item" data-view="favorites"><i class="fas fa-heart"></i><span>Favoritos</span></button>
+      <button class="nav-item" data-view="report"><i class="fas fa-bullhorn"></i><span>Avisar</span></button>
+      <button class="nav-item" id="themeBtn"><i class="fas fa-moon"></i></button>
+      <button class="nav-item logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></button>
+    `;
+  } else if (currentUser.role === 'station_owner' || currentUser.role === 'admin') {
     nav.innerHTML = `
       <button class="nav-item active" data-view="manage"><i class="fas fa-store"></i><span>Painel Geral</span></button>
       <button class="nav-item" data-view="notifications" id="notifNavBtn"><i class="fas fa-bell"></i><span>Notificações</span><span class="notif-badge" id="notifBadge">0</span></button>
@@ -478,7 +546,7 @@ if(backBtn) {
   backBtn.addEventListener('click', () => {
     heroSection.style.display = ''; resultsArea.style.display = 'none'; currentCity = null; currentStations = [];
   });
-}
+}  
 
 function loadCity(cidade) {
   currentCity = cidade;
@@ -675,20 +743,28 @@ function renderRanking(stations) {
   `).join('');
 }
 
-function renderPromos(stations) {
-  if(!promosSection || !promosGrid) return;
-  const promos = stations.filter(s => s.hasPromotion);
-  if (!promos.length) { promosSection.style.display = 'none'; return; }
-  promosSection.style.display = 'block';
-  const fuelName = f => ({ gasolinaComum: 'Gasolina', gasolinaAditivada: 'Aditivada', etanol: 'Etanol', diesel: 'Diesel' }[f] || f);
-  promosGrid.innerHTML = promos.map(s => `
-    <div class="promo-card">
-      <div class="promo-station">${s.name}</div>
-      <span class="promo-fuel-tag">${fuelName(s.promotionFuel)}</span>
-      <div class="promo-big-price">R$ ${s.promoPrice.toFixed(2)}</div>
-      <div class="promo-validity"><i class="fas fa-clock"></i> Até ${s.promoValidity || '--'}</div>
-    </div>
-  `).join('');
+function renderPromos(stations) {     //Alterada recentemente
+  if(!promosSection || !promosGrid) return; 
+  const promos = stations.filter(s => s.hasPromotion); 
+  
+  if (!promos.length) { 
+    promosSection.style.display = 'none'; 
+    return; 
+  } 
+  
+  promosSection.style.display = 'block'; 
+  
+  // ESTA É A LINHA QUE TINHA SIDO CORTADA:
+  const fuelName = f => ({ gasolinaComum: 'Gasolina', gasolinaAditivada: 'Aditivada', etanol: 'Etanol', diesel: 'Diesel' }[f] || f); 
+
+  promosGrid.innerHTML = promos.map(s => ` 
+    <div class="promo-card"> 
+      <div class="promo-station">${s.name}</div> 
+      <span class="promo-fuel-tag">${fuelName(s.promotionFuel)}</span> 
+      <div class="promo-big-price">R$ ${s.promoPrice.toFixed(2)}</div> 
+      <div class="promo-validity"><i class="fas fa-calendar-alt"></i> Validade: ${s.promoValidity || '--'}</div>
+    </div> 
+  `).join(''); 
 }
 
 // ==================== FAVORITES ====================
@@ -1105,23 +1181,43 @@ function showAlert(msg, type = 'error') {
 }
 
 // Monitor de Sessão Ativa (Evita deslogar ao apertar F5)
+// Monitor de Sessão Ativa (Evita deslogar ao apertar F5 com Barreira de Segurança)
 clienteSupabase.auth.onAuthStateChange(async (event, session) => {
     if (session && session.user) {
-        const userMetadata = session.user.user_metadata;
-        if (userMetadata && userMetadata.role === 'admin') {
-            currentUser = { 
-                email: session.user.email, 
-                name: 'Administrador', 
-                role: 'admin', 
-                uid: session.user.id 
+        // 🛡️ SEGUNDA BARREIRA: Mantém a trava rígida ao recarregar a página
+        if (session.user.email === 'suporte@gasfinder.com') {
+            currentUser = {
+                email: session.user.email,
+                name: 'Administrador Master',
+                role: 'admin',
+                uid: session.user.id
             };
+            
             const painel = $('painel-admin');
             if (painel) {
                 painel.style.display = 'block';
-}
-            loginScreen.classList.remove('active');
-            appScreen.classList.add('active');
-            initApp();
+            }
+            
+            // Corrige as linhas vermelhas e joga o Admin para o Painel Geral
+            if ($('loginScreen')) $('loginScreen').classList.remove('active');
+            if ($('appScreen')) $('appScreen').classList.add('active');
+            
+            // Inicializa a aplicação e o alternador de telas
+            if (typeof initApp === 'function') initApp();
+            if (typeof inicializarAlternadorVisao === 'function') inicializarAlternadorVisao();
+            
+        } else {
+            // Qualquer outro e-mail é forçado a assumir um papel comum por segurança
+            currentUser = {
+                email: session.user.email,
+                name: session.user.email.split('@')[0],
+                uid: session.user.id,
+                role: 'user'
+            };
+            
+            // Joga o usuário comum para a tela de seleção de perfil (Motorista ou Posto)
+            if ($('loginScreen')) $('loginScreen').classList.remove('active');
+            if ($('roleScreen')) $('roleScreen').classList.add('active');
         }
     }
 });
@@ -1168,3 +1264,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// FORMATADOR DE TEMPO RELATIVO
+function formatarTempo(dataIso) {
+    if (!dataIso) return "Atualização recente";
+    
+    const data = new Date(dataIso);
+    const agora = new Date();
+    const diffMs = agora - data;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHoras = Math.floor(diffMins / 60);
+    const diffDias = Math.floor(diffHoras / 24);
+
+    if (diffMins < 60) return `Atualizado há ${diffMins === 0 ? 1 : diffMins} min`;
+    if (diffHoras < 24) return `Atualizado há ${diffHoras}h`;
+    if (diffDias === 1) return `Atualizado ontem`;
+    return `Atualizado há ${diffDias} dias`;
+}
+
+// INICIALIZADOR DO BOTÃO ALTERNADOR DE VISÃO (ADMIN <-> MOTORISTA)
+function inicializarAlternadorVisao() {
+    const btnAlternar = document.getElementById('btn-alternar-visao');
+    
+    if (btnAlternar && !btnAlternar.dataset.listenerAtivo) {
+        btnAlternar.dataset.listenerAtivo = 'true'; 
+
+        btnAlternar.addEventListener('click', () => {
+            const telaPesquisa = document.getElementById('searchView'); // Visão Motorista
+            const telaPosto = document.getElementById('manageView');    // Visão Gerente/Admin
+            
+            document.querySelectorAll('#appScreen .view').forEach(v => v.classList.remove('active'));
+
+            if (btnAlternar.innerHTML.includes('Motorista')) {
+                if (telaPesquisa) telaPesquisa.classList.add('active');
+                btnAlternar.innerHTML = '<i class="fas fa-toggle-off"></i> Voltar para Painel Admin';
+                btnAlternar.style.background = '#dc3545'; // Vermelho
+                showAlert('Visão de Motorista ativa.', 'success');
+            } else {
+                if (telaPosto) telaPosto.classList.add('active');
+                btnAlternar.innerHTML = '<i class="fas fa-toggle-on"></i> Mudar para Visão Motorista';
+                btnAlternar.style.background = 'var(--blue, #007bff)'; // Azul
+                showAlert('Visão de Administrador ativa.', 'success');
+            }
+        });
+    }
+}
