@@ -1328,3 +1328,99 @@ function inicializarAlternadorVisao() {
         });
     }
 }
+
+
+// ================================================================
+// PWA — REGISTRO DO SERVICE WORKER E NOTIFICAÇÕES PUSH
+// ================================================================
+
+// Chave pública VAPID — necessária para notificações push
+// Gere a sua em: https://vapidkeys.com/
+// Depois de gerar, substitua a string abaixo pela sua PUBLIC KEY
+const VAPID_PUBLIC_KEY = 'SUA_CHAVE_PUBLICA_VAPID_AQUI';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function registrarPWA() {
+  if (!('serviceWorker' in navigator)) {
+    console.log('[GasFinder] Navegador não suporta Service Worker');
+    return;
+  }
+
+  try {
+    // Registra o Service Worker
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    console.log('[GasFinder] Service Worker registrado com sucesso!');
+
+    // Solicita permissão para notificações
+    if ('Notification' in window && 'PushManager' in window) {
+      const permission = await Notification.requestPermission();
+      
+      if (permission === 'granted') {
+        console.log('[GasFinder] Permissão de notificação concedida!');
+
+        // Inscreve o usuário para receber push
+        // NOTA: as notificações locais (sem servidor push) já funcionam
+        // Para push real via Supabase, você precisa da chave VAPID
+        if (VAPID_PUBLIC_KEY !== 'SUA_CHAVE_PUBLICA_VAPID_AQUI') {
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          });
+          
+          // Aqui você salvaria a subscription no Supabase
+          // para poder mandar push quando o posto atualizar o preço
+          console.log('[GasFinder] Push subscription:', JSON.stringify(subscription));
+          
+          // Exemplo de como salvar no Supabase:
+          // await supabase.from('push_subscriptions').upsert({
+          //   user_id: currentUser.id,
+          //   subscription: JSON.stringify(subscription)
+          // });
+        }
+      } else {
+        console.log('[GasFinder] Permissão de notificação negada');
+      }
+    }
+
+  } catch (error) {
+    console.error('[GasFinder] Erro ao registrar Service Worker:', error);
+  }
+}
+
+// Função para enviar notificação local (sem precisar do servidor push)
+// Use essa enquanto não tiver a chave VAPID configurada
+// Chame essa função quando o posto parceiro salvar novos preços
+function notificarMotoristasLocal(nomePostoOuCidade, tipoCombustivel, novoPreco) {
+  if (Notification.permission === 'granted' && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then((registration) => {
+      registration.showNotification('GasFinder RS — Preço atualizado! ⛽', {
+        body: `${nomePostoOuCidade} atualizou ${tipoCombustivel} para R$ ${novoPreco.toFixed(2)}`,
+        icon: '/Logo-Gas-Finder-2.0.png',
+        badge: '/Logo-Gas-Finder-2.0.png',
+        vibrate: [200, 100, 200],
+        tag: 'price-update'
+      });
+    });
+  }
+}
+
+// Inicia o PWA quando a página carregar
+window.addEventListener('load', registrarPWA);
+
+// EXPORTA a função de notificação para usar em outros lugares do app.js
+// No seu código, onde o posto salva os preços (saveManageBtn),
+// adicione a chamada assim:
+//
+// notificarMotoristasLocal('Posto Ipiranga', 'Gasolina Comum', 5.89);
+//
+// ================================================================
