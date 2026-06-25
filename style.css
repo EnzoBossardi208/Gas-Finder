@@ -50,8 +50,26 @@ body.dark {
 }
 
 html { scroll-behavior: smooth; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
 
+body { 
+  font-family: var(--font); 
+  background: var(--bg); 
+  color: var(--text); 
+  min-height: 100vh; 
+  transition: background 0.3s, color 0.3s; 
+  /* === ADICIONE ESTAS DUAS LINHAS === */
+  display: flex;
+  flex-direction: column;
+}
+
+/* === ADICIONE ESTE BLOCO LOGO ABAIXO DO BODY === */
+/* === ADICIONE ESTE BLOCO LOGO ABAIXO DO BODY === */
+main {
+  flex: 1;
+  display: flex;            /* NOVO: Passa a elasticidade para os filhos */
+  flex-direction: column;   /* NOVO: Mantém tudo empilhado verticalmente */
+  padding-bottom: 0;        /* CORREÇÃO: Remove aquele espaço cinzento extra no fundo */
+}
 /* ===== SCREENS ===== */
 .screen { display: none; min-height: 100vh; }
 .screen.active { display: block; }
@@ -1086,7 +1104,7 @@ input:checked + .toggle-sw::after { transform: translateX(18px); }
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding: 1.5rem;
-  margin-top: 2rem;
+  margin-top: auto; /* <--- ISSO AQUI FAZ A MÁGICA */
 }
 .footer-inner {
   max-width: 1280px;
@@ -1215,5 +1233,89 @@ input:checked + .toggle-sw::after { transform: translateX(18px); }
   .modal-box { padding: 1.5rem; }
   .footer-inner { flex-direction: column; text-align: center; }
   .hero { padding: 2rem 1rem 1.5rem; }
+  /* === INJECTAR ISSO DENTRO DO SEU @MEDIA EXISTENTE === */
+  .auth-panel { padding: 1.5rem; } 
+  .hero-title { font-size: 1.8rem; }
+  .hero { padding: 2rem 1rem 1.5rem; min-height: auto; }
+  .city-cards { flex-direction: column; align-items: stretch; }
+  .city-card { width: 100%; max-width: 100%; }
+  .prices-grid-input { grid-template-columns: 1fr; }
+  .update-prices-grid { grid-template-columns: 1fr; } /* Evita inputs esmagados ao atualizar preços */
+  .modal-box { padding: 1.5rem; width: 95%; max-width: none; }
 }
 
+/* =========================================
+   CORREÇÃO DEFINITIVA DO FUNDO E RODAPÉ
+   ========================================= */
+
+html {
+  height: 100%;
+  background: var(--bg); /* Força o fundo base a acompanhar o Light/Dark mode */
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Faz a tela ativa esticar e ocupar todo o espaço vazio */
+.screen.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+}
+
+/* Faz a view atual (ex: Meu Perfil) também preencher o espaço */
+.view.active {
+  flex: 1;
+}
+
+/* Rodapé "comportado" e grudadinho no final */
+.footer {
+  margin-top: auto !important; 
+  position: relative !important; /* Desativa o fixed que estava flutuando */
+  bottom: auto !important;
+}
+
+/* =========================================
+   ESTICAR A TELA INICIAL (HERO) ATÉ O FOOTER
+   ========================================= */
+
+/* Garante que a tela de pesquisa seja uma coluna flexível */
+#searchView.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Faz o Hero (onde tem o texto principal e o fundo) funcionar como uma mola e preencher o resto do espaço */
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* =======================================================
+   SUPER OVERRIDE: FORÇAR O HERO VERDE ATÉ O FOOTER
+   ======================================================= */
+
+/* 1. Garante que o container da tela de busca seja um Flexbox blindado */
+#searchView.view.active {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+}
+
+/* 2. Força o Hero a esticar feito elástico e quebra qualquer altura antiga */
+#searchView.view.active .hero {
+  flex: 1 !important;
+  height: auto !important;         /* Ignora qualquer 'height' fixo antigo das 1218 linhas */
+  margin-bottom: 0 !important;     /* Remove folgas na parte inferior */
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important; /* Mantém o título e a barra bem centralizados no meio do verde */
+}

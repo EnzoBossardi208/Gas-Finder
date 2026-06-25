@@ -154,7 +154,7 @@
         </button>
     </div>
     
-    <!-- HEADER -->
+    <!--HEADER-->
     <header class="header">
       <div class="header-inner">
         <div class="logo">
@@ -164,7 +164,11 @@
         </div>
         <nav class="nav" id="mainNav">
         </nav>
-      </div>
+        
+        <button id="headerProfileBtn" style="background: none; border: none; color: green; font-size: 1.8rem; cursor: pointer; margin-left: 15px;">
+          <i class="fas fa-user-circle"></i>
+        </button>
+        </div>
     </header>
 
     <main>
@@ -505,6 +509,85 @@
         </div>
       </div>
 
+      <!-- ADIÇÃO RECENTE-->
+      <div id="profileView" class="view">
+        <div class="container">
+          <div class="page-header" style="text-align: center; margin-bottom: 20px;">
+            <h2><i class="fas fa-user-circle"></i> Meu Perfil</h2>
+            <p>Personalize sua experiência</p>
+          </div>
+
+          <div class="report-card">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <i class="fas fa-user-astronaut" style="font-size: 3rem; color: green;"></i>
+            </div>
+            
+            <div class="field" style="margin-bottom: 15px;">
+              <label class="field-text">Nome ou Apelido</label>
+              <div class="field-wrap">
+                <i class="fas fa-id-badge"></i>
+                <input type="text" id="profileName" placeholder="Como quer ser chamado?" style="width: 100%; color: white; outline: none; padding-left: 40px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);">
+              </div>
+            </div>
+
+            <div class="field" style="margin-bottom: 15px;">
+              <label class="field-text">Combustível Favorito</label>
+              <div class="field-wrap">
+                <i class="fas fa-star" style="color: gold;"></i>
+                <select id="profileFuel" style="width: 100%; background: transparent; border: none; color: white; outline: none; padding-left: 40px; cursor: pointer;">
+                  <option value="" style="color: black;">Selecione...</option>
+                  <option value="gasolina" style="color: black;">Gasolina Comum</option>
+                  <option value="aditivada" style="color: black;">Gasolina Aditivada</option>
+                  <option value="etanol" style="color: black;">Etanol</option>
+                  <option value="diesel" style="color: black;">Diesel</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field" style="margin-bottom: 15px;">
+              <label class="field-text">Veículo</label>
+              <div class="field-wrap">
+                <i class="fas fa-car"></i>
+                <select id="profileVehicle" style="width: 100%; background: transparent; border: none; color: white; outline: none; padding-left: 40px; cursor: pointer;">
+                  <option value="" style="color: black;">Selecione...</option>
+                  <option value="carro" style="color: black;">Carro</option>
+                  <option value="moto" style="color: black;">Moto</option>
+                  <option value="caminhao" style="color: black;">Caminhão</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field" style="margin-bottom: 15px;">
+              <label class="field-text">WhatsApp (Opcional)</label>
+              <div class="field-wrap">
+                <i class="fab fa-whatsapp"></i>
+                <input type="tel" id="profilePhone" placeholder="(XX) XXXXX-XXXX" style="width: 100%; background: transparent; border: none; color: white; outline: none; padding-left: 40px;">
+              </div>
+            </div>
+
+            <div class="field" style="margin-bottom: 20px;">
+              <label class="field-text">Placa (Opcional)</label>
+              <div class="field-wrap">
+                <i class="fas fa-bullseye"></i>
+                <input type="text" id="profilePlate" placeholder="ABC-1234" style="width: 100%; background: transparent; border: none; color: white; outline: none; padding-left: 40px; text-transform: uppercase;">
+              </div>
+            </div>
+
+            <button id="saveProfileBtn" class="btn-primary full">
+              <i class="fas fa-save"></i> Salvar Perfil
+            </button>
+            
+            <div id="profileSuccessMsg" class="success-msg" style="display: none; margin-top: 10px;">
+              <i class="fas fa-check-circle"></i> Perfil atualizado!
+            </div>
+
+            <button id="profileLogoutBtn" style="width: 100%; padding: 12px; margin-top: 20px; background: transparent; color: #dc3545; font-weight: bold; border-radius: 8px; border: 1px solid #dc3545; cursor: pointer; transition: 0.3s;">
+              <i class="fas fa-sign-out-alt"></i> Sair da Conta
+            </button>
+          </div>
+        </div>
+      </div>
+  
     </main>
 
     <!-- MODALS -->
@@ -553,7 +636,7 @@
       </div>
     </div>
 
-    <footer class="footer">
+    <footer class="footer" style="position: fixed; bottom: 0; width: 100%;">
       <div class="footer-inner">
         <div class="footer-logo"><i class="fas fa-gas-pump"></i> GasFinder RS</div>
         <div class="footer-note">Preços colaborativos — ajude reportando valores atualizados - Sendo desenvolvido por: Enzo Bossardi</div>

@@ -1424,3 +1424,83 @@ window.addEventListener('load', registrarPWA);
 // notificarMotoristasLocal('Posto Ipiranga', 'Gasolina Comum', 5.89);
 //
 // ================================================================
+
+
+// ==================== LÓGICA DO PERFIL (PROFILE VIEW) ====================
+
+// 1. Função para carregar os dados do Supabase e preencher o formulário
+async function carregarPerfil() {
+    if (!currentUser) return;
+    
+    try {
+        const { data, error } = await clienteSupabase
+            .from('perfis')
+            .select('*')
+            .eq('id', currentUser.uid)
+            .single(); // Puxa apenas o perfil deste utilizador
+            
+        if (data) {
+            // Se já tem perfil salvo, preenche os campos
+            document.getElementById('profileName').value = data.nome || '';
+            document.getElementById('profileFuel').value = data.combustivel_favorito || '';
+            document.getElementById('profileVehicle').value = data.veiculo || '';
+            document.getElementById('profilePhone').value = data.telefone || '';
+            document.getElementById('profilePlate').value = data.placa || '';
+        }
+    } catch (err) {
+        console.log("Perfil ainda não criado ou erro ao carregar.");
+    }
+}
+
+// 2. Abrir o ecrã de Perfil e carregar os dados
+const headerProfileBtn = document.getElementById('headerProfileBtn');
+const profileView = document.getElementById('profileView');
+
+if (headerProfileBtn) {
+    headerProfileBtn.addEventListener('click', () => {
+        // Esconde as outras telas
+        document.querySelectorAll('#appScreen .view').forEach(v => v.classList.remove('active'));
+        // Mostra o Perfil
+        profileView.classList.add('active');
+        // Carrega as informações!
+        carregarPerfil();
+    });
+}
+
+// 3. Guardar os dados do Perfil no Supabase
+const saveProfileBtn = document.getElementById('saveProfileBtn');
+if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', async () => {
+        if (!currentUser) return;
+        
+        // Efeito visual de "A carregar" no botão
+        saveProfileBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A guardar...';
+        
+        // Recolhe o que o utilizador digitou
+        const perfilData = {
+            id: currentUser.uid,
+            nome: document.getElementById('profileName').value,
+            combustivel_favorito: document.getElementById('profileFuel').value,
+            veiculo: document.getElementById('profileVehicle').value,
+            telefone: document.getElementById('profilePhone').value,
+            placa: document.getElementById('profilePlate').value,
+            updated_at: new Date().toISOString()
+        };
+        
+        // Envia para o Supabase usando 'upsert' (Cria se não existir, Atualiza se já existir)
+        const { error } = await clienteSupabase.from('perfis').upsert(perfilData);
+            
+        // Restaura o botão
+        saveProfileBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Perfil';
+        
+        if (error) {
+            console.error("Erro ao guardar perfil:", error);
+            alert("Ocorreu um erro ao guardar. Tenta novamente.");
+        } else {
+            // Mostra a mensagem de sucesso verde
+            const msg = document.getElementById('profileSuccessMsg');
+            msg.style.display = 'block';
+            setTimeout(() => { msg.style.display = 'none'; }, 3000); // Esconde após 3 segundos
+        }
+    });
+}
