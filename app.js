@@ -359,6 +359,10 @@ clienteSupabase.auth.onAuthStateChange(async (event, session) => {
                 role: 'admin',
                 uid: session.user.id
             };
+
+            // ADICIONA ESTAS DUAS LINHAS AQUI 👇
+            verificarPermissaoAdmin(currentUser);
+            carregarDadosPerfil(currentUser.uid || currentUser.id);
             
             const painel = $('painel-admin');
             if (painel) {
@@ -1476,31 +1480,171 @@ if (saveProfileBtn) {
         // Efeito visual de "A carregar" no botão
         saveProfileBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A guardar...';
         
-        // Recolhe o que o utilizador digitou
-        const perfilData = {
-            id: currentUser.uid,
-            nome: document.getElementById('profileName').value,
-            combustivel_favorito: document.getElementById('profileFuel').value,
-            veiculo: document.getElementById('profileVehicle').value,
-            telefone: document.getElementById('profilePhone').value,
-            placa: document.getElementById('profilePlate').value,
-            updated_at: new Date().toISOString()
-        };
-        
-        // Envia para o Supabase usando 'upsert' (Cria se não existir, Atualiza se já existir)
-        const { error } = await clienteSupabase.from('perfis').upsert(perfilData);
+        try {
+            // ======================================================
+            // 1. ATUALIZAÇÃO DE CREDENCIAIS (E-MAIL E SENHA)
+            // ======================================================
+            // Verifica se os campos de email e senha existem na tela e pega os valores
+            const emailInput = document.getElementById('profileEmail');
+            const senhaInput = document.getElementById('profilePassword');
             
-        // Restaura o botão
-        saveProfileBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Perfil';
-        
-        if (error) {
-            console.error("Erro ao guardar perfil:", error);
-            alert("Ocorreu um erro ao guardar. Tenta novamente.");
-        } else {
-            // Mostra a mensagem de sucesso verde
+            let updateAuth = {};
+            
+            // Se o usuário digitou um e-mail novo e diferente do atual
+            if (emailInput && emailInput.value.trim() !== '' && emailInput.value.trim() !== currentUser.email) {
+                updateAuth.email = emailInput.value.trim();
+            }
+            
+            // Se o usuário digitou uma nova senha
+            if (senhaInput && senhaInput.value !== '') {
+                if (senhaInput.value.length < 6) {
+                    alert("A nova senha deve ter pelo menos 6 caracteres.");
+                    saveProfileBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Perfil';
+                    return; // Para a execução aqui
+                }
+                updateAuth.password = senhaInput.value;
+            }
+
+            // Se tiver e-mail ou senha para atualizar, chama a API de segurança do Supabase
+            if (Object.keys(updateAuth).length > 0) {
+                const { error: authError } = await clienteSupabase.auth.updateUser(updateAuth);
+                if (authError) throw authError;
+                
+                // Aviso sobre a confirmação de e-mail
+                if (updateAuth.email) {
+                    alert("Foi enviado um link de confirmação para o seu novo e-mail. A alteração só será concluída quando você clicar nele!");
+                }
+            }
+
+            // ======================================================
+            // 2. ATUALIZAÇÃO DOS DADOS GERAIS NA TABELA 'perfis'
+            // ======================================================
+            const perfilData = {
+                // Usa uid ou id (dependendo de como sua variável currentUser está montada)
+                id: currentUser.uid || currentUser.id, 
+                nome: document.getElementById('profileName') ? document.getElementById('profileName').value : '',
+                combustivel_favorito: document.getElementById('profileFuel') ? document.getElementById('profileFuel').value : '',
+                veiculo: document.getElementById('profileVehicle') ? document.getElementById('profileVehicle').value : '',
+                telefone: document.getElementById('profilePhone') ? document.getElementById('profilePhone').value : '',
+                placa: document.getElementById('profilePlate') ? document.getElementById('profilePlate').value : '',
+                updated_at: new Date().toISOString()
+            };
+            
+            // Envia para o Supabase usando 'upsert'
+            const { error: dbError } = await clienteSupabase.from('perfis').upsert(perfilData);
+            if (dbError) throw dbError;
+            
+            // Mostra a mensagem de sucesso verde do seu código
             const msg = document.getElementById('profileSuccessMsg');
-            msg.style.display = 'block';
-            setTimeout(() => { msg.style.display = 'none'; }, 3000); // Esconde após 3 segundos
+            if (msg) {
+                msg.style.display = 'block';
+                setTimeout(() => { msg.style.display = 'none'; }, 3000); // Esconde após 3 segundos
+            }
+
+        } catch (error) {
+            console.error("Erro ao guardar perfil:", error);
+            alert("Ocorreu um erro ao guardar: " + error.message);
+        } finally {
+            // Restaura o botão para o normal, independentemente de ter dado certo ou erro
+            saveProfileBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Perfil';
         }
     });
 }
+
+// =======================================================
+// LÓGICA DO PAINEL DE ADMINISTRAÇÃO E PERFIL (ADICIONADO)
+// =======================================================
+
+async function carregarDadosPerfil(userId) {
+    try {
+        const { data, error } = await clienteSupabase.from('perfis').select('*').eq('id', userId).maybeSingle(); 
+        if (error) throw error;
+        if (data) {
+            if (document.getElementById('profileName')) document.getElementById('profileName').value = data.nome || '';
+            if (document.getElementById('profilePhone')) document.getElementById('profilePhone').value = data.telefone || '';
+            if (document.getElementById('profilePlate')) document.getElementById('profilePlate').value = data.placa || '';
+            if (document.getElementById('profileFuel')) document.getElementById('profileFuel').value = data.combustivel_favorito || '';
+            if (document.getElementById('profileVehicle')) document.getElementById('profileVehicle').value = data.veiculo || '';
+        }
+    } catch (error) {
+        console.error("Erro ao carregar dados do perfil:", error);
+    }
+}
+
+const ADMIN_EMAIL = 'suporte@gasfinder.com';
+
+function verificarPermissaoAdmin(usuarioLogado) {
+    const adminPanel = document.getElementById('adminPanelSection');
+    if(!adminPanel) return;
+    if (usuarioLogado && usuarioLogado.email === ADMIN_EMAIL) {
+        adminPanel.style.display = 'block';
+        carregarPostosAdmin();
+    } else {
+        adminPanel.style.display = 'none';
+    }
+}
+
+document.getElementById('adminLogoutBtn')?.addEventListener('click', async () => {
+    await clienteSupabase.auth.signOut();
+    window.location.reload(); 
+});
+
+document.getElementById('adminAddStationBtn')?.addEventListener('click', async () => {
+    const nome = document.getElementById('adminNewStationName').value.trim();
+    const endereco = document.getElementById('adminNewStationAddress').value.trim();
+    if (!nome || !endereco) { alert("Preencha o nome e a morada do posto!"); return; }
+
+    try {
+        const btn = document.getElementById('adminAddStationBtn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A guardar...';
+        const { error } = await clienteSupabase.from('postos').insert([{ nome: nome, endereco: endereco }]);
+        if (error) throw error;
+
+        alert("Posto adicionado com sucesso!");
+        document.getElementById('adminNewStationName').value = '';
+        document.getElementById('adminNewStationAddress').value = '';
+        carregarPostosAdmin(); 
+        if(typeof buscarPostosDoBanco === 'function') buscarPostosDoBanco();
+    } catch (error) {
+        alert("Erro ao adicionar posto: " + error.message);
+    } finally {
+        document.getElementById('adminAddStationBtn').innerHTML = '<i class="fas fa-save"></i> Guardar Novo Posto';
+    }
+});
+
+async function carregarPostosAdmin() {
+    const list = document.getElementById('adminStationList');
+    if (!list) return;
+    list.innerHTML = '<p>A carregar postos...</p>';
+    try {
+        const { data: postos, error } = await clienteSupabase.from('postos').select('*').order('nome', { ascending: true });
+        if (error) throw error;
+        list.innerHTML = postos.length === 0 ? '<p style="color: gray;">Nenhum posto registado ainda.</p>' : '';
+        postos.forEach(posto => {
+            list.innerHTML += `
+                <li style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border);">
+                    <div><strong>${posto.nome}</strong><br><small style="color: gray;">${posto.endereco}</small></div>
+                    <button onclick="apagarPostoAdmin('${posto.id}')" style="background: var(--red); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </li>
+            `;
+        });
+    } catch (error) {
+        list.innerHTML = `<p style="color: red;">Erro ao carregar: ${error.message}</p>`;
+    }
+}
+
+window.apagarPostoAdmin = async function(id) {
+    if (confirm("Tens a certeza que desejas apagar este posto definitivamente?")) {
+        try {
+            const { error } = await clienteSupabase.from('postos').delete().eq('id', id);
+            if (error) throw error;
+            alert("Posto apagado com sucesso!");
+            carregarPostosAdmin(); 
+            if(typeof buscarPostosDoBanco === 'function') buscarPostosDoBanco();
+        } catch (error) {
+            alert("Erro ao apagar posto: " + error.message);
+        }
+    }
+};
