@@ -1,6 +1,10 @@
 const supabaseUrl = 'https://tteozknocjjbsjjehqel.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0ZW96a25vY2pqYnNqamVocWVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTczOTYsImV4cCI6MjA5NTI5MzM5Nn0.FDRqKNW3BvuyqS4vmYnY3CiD4ug2cPXsZMBDMeEvH_o'; 
-const clienteSupabase = supabase.createClient(supabaseUrl, supabaseKey);
+const clienteSupabase = supabase.createClient(supabaseUrl, supabaseKey, {
+    auth: {
+        persistSession: false // Impede que o login seja salvo entre recarregamentos da página
+    }
+});
 
 // ==================== FORMATADOR DE TEMPO ====================
 function formatarTempo(dataIso) {
