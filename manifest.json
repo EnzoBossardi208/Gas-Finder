@@ -2,7 +2,7 @@
   "name": "GasFinder RS",
   "short_name": "GasFinder",
   "description": "Melhores preços de combustível em Vera Cruz e Santa Cruz do Sul",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0f0f1a",
   "theme_color": "#00c896",
@@ -10,18 +10,12 @@
   "icons": [
     {
       "src": "Logo-Gas-Finder-2.0.png",
-      "sizes": "192x192",
+      "sizes": "any",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "Logo-Gas-Finder-2.0.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "categories": ["utilities", "lifestyle"],
   "lang": "pt-BR",
-  "scope": "/"
+  "scope": "./"
 }

@@ -208,8 +208,6 @@
 
     <!-- ==================== APP SCREEN ==================== -->
     <div id="appScreen" class="screen">
-      <!--ADIÇÃO RECENTE--><!--ADIÇÃO RECENTE--><!--ADIÇÃO RECENTE--><!--ADIÇÃO RECENTE--><!--ADIÇÃO RECENTE--><!--ADIÇÃO RECENTE-->
-
       <!-- PAINEL ADMINISTRADOR MASTER -->
       <section
         id="adminPanelSection"
@@ -231,7 +229,7 @@
           <div
             class="stat-card"
             style="
-              background: var(--card-bg, #f8f9fa);
+              background: var(--surface2);
               padding: 1rem;
               border-radius: 8px;
               border-left: 4px solid #007bff;
@@ -243,7 +241,7 @@
           <div
             class="stat-card"
             style="
-              background: var(--card-bg, #f8f9fa);
+              background: var(--surface2);
               padding: 1rem;
               border-radius: 8px;
               border-left: 4px solid #28a745;
@@ -255,7 +253,7 @@
           <div
             class="stat-card"
             style="
-              background: var(--card-bg, #f8f9fa);
+              background: var(--surface2);
               padding: 1rem;
               border-radius: 8px;
               border-left: 4px solid #ffc107;
@@ -268,8 +266,9 @@
 
         <!-- CADASTRAR NOVO POSTO -->
         <div
+          class="admin-panel-block"
           style="
-            background: var(--card-bg, #f8f9fa);
+            background: var(--surface2);
             padding: 1.5rem;
             border-radius: 8px;
             margin-bottom: 2rem;
@@ -318,8 +317,9 @@
 
         <!-- LISTA E GERENCIADOR DE POSTOS -->
         <div
+          class="admin-panel-block"
           style="
-            background: var(--card-bg, #f8f9fa);
+            background: var(--surface2);
             padding: 1.5rem;
             border-radius: 8px;
           "
@@ -422,20 +422,26 @@
             </button>
           </nav>
 
-          <button
-            id="headerProfileBtn"
-            style="
-              background: none;
-              border: none;
-              color: green;
-              font-size: 1.8rem;
-              cursor: pointer;
-              margin-left: 15px;
-            "
-            title="Meu Perfil"
-          >
-            <i class="fas fa-user-circle"></i>
-          </button>
+          <div class="header-actions">
+            <button
+              id="themeBtn"
+              class="header-icon-btn"
+              type="button"
+              title="Alternar tema claro/escuro"
+              aria-label="Alternar tema claro/escuro"
+            >
+              <i class="fas fa-moon"></i>
+            </button>
+            <button
+              id="headerProfileBtn"
+              class="header-icon-btn"
+              type="button"
+              title="Meu Perfil"
+              aria-label="Meu Perfil"
+            >
+              <i class="fas fa-user-circle"></i>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -456,27 +462,27 @@
                 região.
               </p>
               <div class="city-cards">
-                <!-- Cartão Vera Cruz -->
-                <div class="city-card" data-city="Vera Cruz">
+                <button type="button" class="city-card" data-city="Vera Cruz">
                   <div class="city-icon"><i class="fas fa-city"></i></div>
                   <div class="city-info">
                     <strong>Vera Cruz</strong>
-                    <!-- Adicione o ID aqui: -->
                     <span id="counter-vera-cruz">0 postos</span>
                   </div>
                   <i class="fas fa-chevron-right"></i>
-                </div>
+                </button>
 
-                <!-- Cartão Santa Cruz do Sul -->
-                <div class="city-card" data-city="Santa Cruz do Sul">
+                <button
+                  type="button"
+                  class="city-card"
+                  data-city="Santa Cruz do Sul"
+                >
                   <div class="city-icon"><i class="fas fa-city"></i></div>
                   <div class="city-info">
                     <strong>Santa Cruz do Sul</strong>
-                    <!-- Adicione o ID aqui: -->
                     <span id="counter-santa-cruz">0 postos</span>
                   </div>
                   <i class="fas fa-chevron-right"></i>
-                </div>
+                </button>
               </div>
               <div class="hero-search">
                 <div class="search-wrap">
@@ -502,11 +508,11 @@
                 <i class="fas fa-sync-alt"></i> Atualizado agora
               </div>
               <div class="stat-pill">
-                <span id="totalPostos">18</span> postos cadastrados
+                <span id="totalPostos">0</span> postos cadastrados
               </div>
               <div class="stat-pill">
                 <i class="fas fa-tag"></i>
-                <span id="totalPromos">7</span> promoções ativas
+                <span id="totalPromos">0</span> promoções ativas
               </div>
             </div>
           </div>
@@ -937,7 +943,6 @@
           </div>
         </div>
 
-        <!-- ADIÇÃO RECENTE-->
         <div id="profileView" class="view">
           <div class="container">
             <div
@@ -952,122 +957,76 @@
               <div style="text-align: center; margin-bottom: 20px">
                 <i
                   class="fas fa-user-astronaut"
-                  style="font-size: 3rem; color: green"
+                  style="font-size: 3rem; color: var(--accent)"
                 ></i>
               </div>
 
               <div class="field" style="margin-bottom: 15px">
-                <label class="field-text">Nome ou Apelido</label>
+                <label class="field-text" for="profileName">Nome ou Apelido</label>
                 <div class="field-wrap">
                   <i class="fas fa-id-badge"></i>
                   <input
                     type="text"
                     id="profileName"
                     placeholder="Como quer ser chamado?"
-                    style="
-                      width: 100%;
-                      color: white;
-                      outline: none;
-                      padding-left: 40px;
-                      background: rgba(255, 255, 255, 0.08);
-                      border: 1px solid rgba(255, 255, 255, 0.15);
-                    "
                   />
                 </div>
               </div>
 
               <div class="field" style="margin-bottom: 15px">
-                <label class="field-text">Combustível Favorito</label>
+                <label class="field-text" for="profileFuel"
+                  >Combustível Favorito</label
+                >
                 <div class="field-wrap">
                   <i class="fas fa-star" style="color: gold"></i>
-                  <select
-                    id="profileFuel"
-                    style="
-                      width: 100%;
-                      background: transparent;
-                      border: none;
-                      color: white;
-                      outline: none;
-                      padding-left: 40px;
-                      cursor: pointer;
-                    "
-                  >
-                    <option value="" style="color: black">Selecione...</option>
-                    <option value="gasolina" style="color: black">
-                      Gasolina Comum
-                    </option>
-                    <option value="aditivada" style="color: black">
-                      Gasolina Aditivada
-                    </option>
-                    <option value="etanol" style="color: black">Etanol</option>
-                    <option value="diesel" style="color: black">Diesel</option>
+                  <select id="profileFuel">
+                    <option value="">Selecione...</option>
+                    <option value="gasolinaComum">Gasolina Comum</option>
+                    <option value="gasolinaAditivada">Gasolina Aditivada</option>
+                    <option value="etanol">Etanol</option>
+                    <option value="diesel">Diesel</option>
                   </select>
                 </div>
               </div>
 
               <div class="field" style="margin-bottom: 15px">
-                <label class="field-text">Veículo</label>
+                <label class="field-text" for="profileVehicle">Veículo</label>
                 <div class="field-wrap">
                   <i class="fas fa-car"></i>
-                  <select
-                    id="profileVehicle"
-                    style="
-                      width: 100%;
-                      background: transparent;
-                      border: none;
-                      color: white;
-                      outline: none;
-                      padding-left: 40px;
-                      cursor: pointer;
-                    "
-                  >
-                    <option value="" style="color: black">Selecione...</option>
-                    <option value="carro" style="color: black">Carro</option>
-                    <option value="moto" style="color: black">Moto</option>
-                    <option value="caminhao" style="color: black">
-                      Caminhão
-                    </option>
+                  <select id="profileVehicle">
+                    <option value="">Selecione...</option>
+                    <option value="carro">Carro</option>
+                    <option value="moto">Moto</option>
+                    <option value="caminhao">Caminhão</option>
                   </select>
                 </div>
               </div>
 
               <div class="field" style="margin-bottom: 15px">
-                <label class="field-text">WhatsApp (Opcional)</label>
+                <label class="field-text" for="profilePhone"
+                  >WhatsApp (Opcional)</label
+                >
                 <div class="field-wrap">
                   <i class="fab fa-whatsapp"></i>
                   <input
                     type="tel"
                     id="profilePhone"
                     placeholder="(XX) XXXXX-XXXX"
-                    style="
-                      width: 100%;
-                      background: transparent;
-                      border: none;
-                      color: white;
-                      outline: none;
-                      padding-left: 40px;
-                    "
                   />
                 </div>
               </div>
 
               <div class="field" style="margin-bottom: 20px">
-                <label class="field-text">Placa (Opcional)</label>
+                <label class="field-text" for="profilePlate"
+                  >Placa (Opcional)</label
+                >
                 <div class="field-wrap">
                   <i class="fas fa-bullseye"></i>
                   <input
                     type="text"
                     id="profilePlate"
                     placeholder="ABC-1234"
-                    style="
-                      width: 100%;
-                      background: transparent;
-                      border: none;
-                      color: white;
-                      outline: none;
-                      padding-left: 40px;
-                      text-transform: uppercase;
-                    "
+                    style="text-transform: uppercase"
                   />
                 </div>
               </div>
@@ -1180,14 +1139,14 @@
         </div>
       </div>
 
-      <footer class="footer" style="position: fixed; bottom: 0; width: 100%">
+      <footer class="footer">
         <div class="footer-inner">
           <div class="footer-logo">
             <i class="fas fa-gas-pump"></i> GasFinder RS
           </div>
           <div class="footer-note">
-            Preços colaborativos — ajude reportando valores atualizados - Sendo
-            desenvolvido por: Enzo Bossardi - v1.0.1 31/08/26.
+            Preços colaborativos — ajude reportando valores atualizados. Em
+            desenvolvimento por Enzo Bossardi — v2
           </div>
           <div class="footer-copy">© 2026 GasFinder RS</div>
         </div>

@@ -162,7 +162,7 @@ main {
   top: 25px;
 }
 
-.field { display: flex; flex-direction: column; gap: 2rem; }
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
 .field label { font-size: 0.8rem; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.05em; }
 .field-wrap { position: relative; }
 .field-wrap > i {
@@ -298,6 +298,34 @@ main {
 
 .nav { display: flex; align-items: center; gap: 0.25rem; }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
+.header-icon-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 1.35rem;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.header-icon-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -419,12 +447,15 @@ main {
   font-family: var(--font);
   min-width: 200px;
   text-align: left;
+  width: auto;
 }
-.city-card:hover {
+.city-card:hover,
+.city-card:focus-visible {
   background: rgba(0,196,122,0.1);
   border-color: rgba(0,196,122,0.4);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0,196,122,0.15);
+  outline: none;
 }
 
 .city-icon {

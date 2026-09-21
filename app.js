@@ -120,6 +120,15 @@ function showAlert(msg, type = "error") {
   setTimeout(() => el.remove(), 3500);
 }
 
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function getPostosPorCidade(cidade) {
   return POSTOS_DATA[cidade] || [];
 }
@@ -386,6 +395,11 @@ function toggleTheme() {
 
 initTheme();
 
+$("themeBtn")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  toggleTheme();
+});
+
 // ==================== 7. AUTH ====================
 function buildCurrentUser(user, roleOverride) {
   const isAdmin = user.email === ADMIN_EMAIL;
@@ -503,12 +517,21 @@ if (registerForm) {
     const { data, error } = await clienteSupabase.auth.signUp({
       email,
       password: pass,
+      options: { data: { nome: name } },
     });
     btn.textContent = original;
 
     if (error) {
       showAlert("Erro ao registrar: " + error.message);
       return;
+    }
+
+    if (data.user?.id) {
+      await clienteSupabase.from("perfis").upsert({
+        id: data.user.id,
+        nome: name,
+        updated_at: new Date().toISOString(),
+      });
     }
 
     showAlert("Conta criada com sucesso!", "success");
@@ -599,7 +622,6 @@ function buildNav() {
         <i class="fas fa-bell"></i><span>Avisos</span>
         <span id="notifBadge" style="display:none;position:absolute;top:2px;right:8px;background:#e74c3c;color:#fff;font-size:0.65rem;padding:1px 5px;border-radius:10px;">0</span>
       </button>
-      <button class="nav-item" id="themeBtn" type="button"><i class="fas fa-moon"></i></button>
     `;
   } else if (role === "station_owner") {
     nav.innerHTML = `
@@ -610,7 +632,6 @@ function buildNav() {
         <i class="fas fa-bell"></i><span>Avisos</span>
         <span id="notifBadge" style="display:none;position:absolute;top:2px;right:8px;background:#e74c3c;color:#fff;font-size:0.65rem;padding:1px 5px;border-radius:10px;">0</span>
       </button>
-      <button class="nav-item" id="themeBtn" type="button"><i class="fas fa-moon"></i></button>
     `;
   } else if (role === "admin") {
     nav.innerHTML = `
@@ -623,7 +644,6 @@ function buildNav() {
       <button class="nav-item" data-target="searchView">
         <i class="fas fa-search"></i><span>Buscar</span>
       </button>
-      <button class="nav-item" id="themeBtn" type="button"><i class="fas fa-moon"></i></button>
     `;
   }
 
@@ -639,14 +659,6 @@ function bindNavListeners() {
       showView(btn.dataset.target);
     });
   });
-
-  const themeBtn = $("themeBtn");
-  if (themeBtn) {
-    themeBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      toggleTheme();
-    });
-  }
 }
 
 function showView(viewId) {
@@ -788,28 +800,48 @@ function loadCity(cidade) {
 }
 
 if (heroSearchInput) {
+  let searchTimer = null;
+
   heroSearchInput.addEventListener("input", function () {
+    clearTimeout(searchTimer);
     const q = this.value.trim().toLowerCase();
+    if (q.length < 3) return;
+
+    searchTimer = setTimeout(() => {
+      const found = getTodosPostos().find(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.address || "").toLowerCase().includes(q),
+      );
+      if (!found) return;
+      loadCity(found.city);
+      setTimeout(() => {
+        const card = document.querySelector(`[data-id="${found.id}"]`);
+        if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 450);
+    }, 400);
+  });
+
+  heroSearchInput.addEventListener("keypress", (e) => {
+    if (e.key !== "Enter") return;
+    clearTimeout(searchTimer);
+    const q = heroSearchInput.value.trim().toLowerCase();
     if (!q) return;
+
     const found = getTodosPostos().find(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.address || "").toLowerCase().includes(q),
     );
     if (found) {
-      heroSearchInput.value = found.name;
       loadCity(found.city);
       setTimeout(() => {
         const card = document.querySelector(`[data-id="${found.id}"]`);
         if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 500);
+      }, 450);
+      return;
     }
-  });
 
-  heroSearchInput.addEventListener("keypress", (e) => {
-    if (e.key !== "Enter") return;
-    const q = heroSearchInput.value.trim().toLowerCase();
-    if (!q) return;
     const city = CIDADES_DISPONIVEIS.find((c) => c.toLowerCase().includes(q));
     if (city) loadCity(city);
   });
@@ -840,6 +872,13 @@ function handleGeo() {
         }
       }
       heroGeoBtn.innerHTML = '<i class="fas fa-location-arrow"></i>';
+
+      // ~0.2° ≈ 20 km — fora da área coberta
+      if (minDist > 0.2) {
+        showAlert("Você está fora da área coberta (Vera Cruz / Santa Cruz do Sul).");
+        return;
+      }
+
       showAlert(`Carregando ${closest}...`, "success");
       setTimeout(() => loadCity(closest), 400);
     },
