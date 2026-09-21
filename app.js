@@ -1023,16 +1023,16 @@ function renderStations(stations) {
       );
 
       return `
-      <div class="station-card${isCheapest ? " is-cheapest" : ""}" data-id="${s.id}">
+      <div class="station-card${isCheapest ? " is-cheapest" : ""}" data-id="${escapeHtml(s.id)}">
         <div class="card-top">
-          <div class="card-name">${s.name}</div>
-          <button class="fav-btn${isFav ? " active" : ""}" data-id="${s.id}">
+          <div class="card-name">${escapeHtml(s.name)}</div>
+          <button class="fav-btn${isFav ? " active" : ""}" data-id="${escapeHtml(s.id)}" aria-label="${isFav ? "Remover dos favoritos" : "Adicionar aos favoritos"}">
             <i class="${isFav ? "fas" : "far"} fa-heart"></i>
           </button>
         </div>
         ${tags.length ? `<div class="card-tags">${tags.join("")}</div>` : ""}
         ${updatedHtml}
-        <div class="card-address"><i class="fas fa-map-pin"></i> ${s.address || ""}</div>
+        <div class="card-address"><i class="fas fa-map-pin"></i> ${escapeHtml(s.address || "")}</div>
         <div class="prices-table">
           <div class="price-row"><span class="price-fuel">Gasolina</span>${gasHtml}</div>
           <div class="price-row"><span class="price-fuel">Aditivada</span>${aditHtml}</div>
@@ -1041,11 +1041,11 @@ function renderStations(stations) {
         </div>
         <div class="card-bottom">
           <div class="card-meta">
-            <span><i class="fas fa-clock"></i> ${s.openingHours || "--"}</span>
+            <span><i class="fas fa-clock"></i> ${escapeHtml(s.openingHours || "--")}</span>
           </div>
           <div class="card-actions">
-            <input type="checkbox" class="cmp-check" data-id="${s.id}" ${inCompare ? "checked" : ""}>
-            ${s.mapsLink ? `<a href="${s.mapsLink}" target="_blank" rel="noopener" class="maps-btn"><i class="fas fa-route"></i> Rota</a>` : ""}
+            <input type="checkbox" class="cmp-check" data-id="${escapeHtml(s.id)}" ${inCompare ? "checked" : ""} aria-label="Comparar este posto">
+            ${s.mapsLink ? `<a href="${escapeHtml(s.mapsLink)}" target="_blank" rel="noopener" class="maps-btn"><i class="fas fa-route"></i> Rota</a>` : ""}
           </div>
         </div>
       </div>`;
@@ -1193,12 +1193,6 @@ if (compareBtn) {
   });
 }
 
-if (closeCmpModal) {
-  closeCmpModal.addEventListener("click", () => {
-    if (compareModal) compareModal.style.display = "none";
-  });
-}
-
 function renderCompareModal() {
   if (!compareModal || !compareContent) return;
   const list = getTodosPostos()
@@ -1209,8 +1203,8 @@ function renderCompareModal() {
     .map(
       (s) => `
     <div class="cmp-col">
-      <div class="cmp-header">${s.name}</div>
-      <div class="cmp-cell"><b>Cidade:</b> ${s.city}</div>
+      <div class="cmp-header">${escapeHtml(s.name)}</div>
+      <div class="cmp-cell"><b>Cidade:</b> ${escapeHtml(s.city)}</div>
       <div class="cmp-cell"><b>Gasolina:</b> R$ ${s.gasolinaComum.toFixed(2)}</div>
       <div class="cmp-cell"><b>Aditivada:</b> R$ ${s.gasolinaAditivada.toFixed(2)}</div>
       <div class="cmp-cell"><b>Etanol:</b> R$ ${s.etanol.toFixed(2)}</div>
@@ -1221,16 +1215,76 @@ function renderCompareModal() {
   compareModal.style.display = "flex";
 }
 
-// ==================== 12. REPORT / UPDATE PRICES (driver local) ====================
-if (updatePricesBtn) {
-  updatePricesBtn.addEventListener("click", () => {
-    if (updateModal) updateModal.style.display = "flex";
+// ==================== 12. REPORT / UPDATE PRICES ====================
+const FUEL_DB_MAP = {
+  gasolinaComum: "gasolina_comum",
+  gasolinaAditivada: "gasolina_aditivada",
+  etanol: "etanol",
+  diesel: "diesel",
+  dieselS10: "diesel_s10",
+};
+
+async function salvarPrecoColaborativo(codigoPosto, payload) {
+  const update = { updated_at: new Date().toISOString() };
+
+  Object.entries(FUEL_DB_MAP).forEach(([jsKey, dbKey]) => {
+    if (payload[jsKey] !== undefined && payload[jsKey] !== null) {
+      update[dbKey] = parseFloat(payload[jsKey]) || 0;
+    }
+  });
+
+  if (payload.hasPromotion !== undefined) {
+    update.has_promotion = !!payload.hasPromotion;
+    update.promotion_fuel = payload.promotionFuel || "";
+    update.promo_price = parseFloat(payload.promoPrice) || 0;
+    update.promo_validity = payload.promoValidity || null;
+  }
+
+  const { error } = await clienteSupabase
+    .from("postos")
+    .update(update)
+    .eq("codigo_posto", codigoPosto);
+
+  if (error) {
+    console.warn("Atualização colaborativa bloqueada/falhou:", error.message);
+    return false;
+  }
+  return true;
+}
+
+function cacheLocalPrices(id, data) {
+  if (!customPrices[id]) customPrices[id] = {};
+  Object.assign(customPrices[id], data);
+  localStorage.setItem("gf_custom_prices", JSON.stringify(customPrices));
+}
+
+function closeModal(modalEl) {
+  if (modalEl) modalEl.style.display = "none";
+}
+
+function bindModalDismiss(modalEl, closeBtn) {
+  if (!modalEl) return;
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => closeModal(modalEl));
+  }
+  modalEl.addEventListener("click", (e) => {
+    if (e.target === modalEl) closeModal(modalEl);
   });
 }
 
-if (closeUpdateModal) {
-  closeUpdateModal.addEventListener("click", () => {
-    if (updateModal) updateModal.style.display = "none";
+bindModalDismiss(compareModal, closeCmpModal);
+bindModalDismiss(updateModal, closeUpdateModal);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  closeModal(compareModal);
+  closeModal(updateModal);
+  if ($("modalNovoPosto")) $("modalNovoPosto").remove();
+});
+
+if (updatePricesBtn) {
+  updatePricesBtn.addEventListener("click", () => {
+    if (updateModal) updateModal.style.display = "flex";
   });
 }
 
@@ -1248,7 +1302,7 @@ if (updateStation) {
 }
 
 if (saveUpdateBtn) {
-  saveUpdateBtn.addEventListener("click", () => {
+  saveUpdateBtn.addEventListener("click", async () => {
     const id = updateStation?.value;
     if (!id) return;
     const g = parseFloat($("upGas")?.value);
@@ -1259,18 +1313,46 @@ if (saveUpdateBtn) {
       showAlert("Preencha os campos validamente.");
       return;
     }
-    if (!customPrices[id]) customPrices[id] = {};
-    Object.assign(customPrices[id], {
+
+    const payload = {
       gasolinaComum: g,
       gasolinaAditivada: a,
       etanol: e,
       dieselS10: d,
       diesel: d,
-    });
-    localStorage.setItem("gf_custom_prices", JSON.stringify(customPrices));
+    };
+
+    cacheLocalPrices(id, payload);
+
+    const posto = getTodosPostos().find((p) => p.id === id);
+    const podeNoBanco =
+      isAdminUser() || (posto && posto.dono_id === currentUser?.uid);
+
+    let synced = false;
+    if (podeNoBanco) {
+      synced = await atualizarPrecosNoBanco(id, {
+        ...payload,
+        hasPromotion: false,
+        promotionFuel: "",
+        promoPrice: 0,
+        promoValidity: null,
+      });
+    } else {
+      synced = await salvarPrecoColaborativo(id, payload);
+    }
+
+    if (synced) await buscarPostosDoBanco();
+
     if ($("updateSuccess")) $("updateSuccess").style.display = "flex";
+    showAlert(
+      synced
+        ? "Preços sincronizados com o servidor!"
+        : "Preços salvos neste dispositivo (servidor bloqueou ou RLS).",
+      synced ? "success" : "error",
+    );
+
     setTimeout(() => {
-      if (updateModal) updateModal.style.display = "none";
+      closeModal(updateModal);
       if ($("updateSuccess")) $("updateSuccess").style.display = "none";
       if (currentCity) loadCity(currentCity);
     }, 1200);
@@ -1280,7 +1362,7 @@ if (saveUpdateBtn) {
 function populateUpdateStation(cidade) {
   if (!updateStation) return;
   updateStation.innerHTML = getPostosPorCidade(cidade)
-    .map((p) => `<option value="${p.id}">${p.name}</option>`)
+    .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
     .join("");
   updateStation.dispatchEvent(new Event("change"));
 }
@@ -1296,14 +1378,16 @@ function populateReportCity() {
   const cities = CIDADES_DISPONIVEIS.length
     ? CIDADES_DISPONIVEIS
     : ["Vera Cruz", "Santa Cruz do Sul"];
-  reportCity.innerHTML = cities.map((c) => `<option value="${c}">${c}</option>`).join("");
+  reportCity.innerHTML = cities
+    .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+    .join("");
   populateReportStation(reportCity.value);
 }
 
 function populateReportStation(cidade) {
   if (!reportStation) return;
   reportStation.innerHTML = getPostosPorCidade(cidade)
-    .map((p) => `<option value="${p.id}">${p.name}</option>`)
+    .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
     .join("");
 }
 
@@ -1316,7 +1400,7 @@ if (reportIsPromo) {
 }
 
 if (reportForm) {
-  reportForm.addEventListener("submit", (e) => {
+  reportForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = reportStation.value;
     const fuel = reportFuel.value;
@@ -1329,17 +1413,31 @@ if (reportForm) {
       return;
     }
 
-    if (!customPrices[id]) customPrices[id] = {};
-    customPrices[id][fuel] = price;
+    const localData = { [fuel]: price };
     if (isPromo) {
-      Object.assign(customPrices[id], {
+      Object.assign(localData, {
         hasPromotion: true,
         promotionFuel: fuel,
         promoPrice: price,
         promoValidity: validity || "--",
       });
     }
-    localStorage.setItem("gf_custom_prices", JSON.stringify(customPrices));
+    cacheLocalPrices(id, localData);
+
+    const synced = await salvarPrecoColaborativo(id, {
+      [fuel]: price,
+      ...(fuel === "diesel" ? { dieselS10: price } : {}),
+      ...(isPromo
+        ? {
+            hasPromotion: true,
+            promotionFuel: fuel,
+            promoPrice: price,
+            promoValidity: validity || "--",
+          }
+        : {}),
+    });
+
+    if (synced) await buscarPostosDoBanco();
 
     const originalP = getTodosPostos().find((x) => x.id === id);
     notifications.unshift({
@@ -1365,7 +1463,12 @@ if (reportForm) {
       }, 2500);
     }
 
-    showAlert("Obrigado! Preço reportado.", "success");
+    showAlert(
+      synced
+        ? "Obrigado! Preço enviado ao servidor."
+        : "Relatório salvo neste dispositivo (servidor não aceitou a escrita).",
+      synced ? "success" : "error",
+    );
     reportForm.reset();
     if (promoValidityField) promoValidityField.style.display = "none";
     updateNotifBadge();
@@ -1882,23 +1985,47 @@ async function registrarPWA() {
   if (!("serviceWorker" in navigator)) return;
 
   try {
-    const registration = await navigator.serviceWorker.register("./sw.js");
-    if (!("Notification" in window) || !("PushManager" in window)) return;
-
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return;
-
-    if (VAPID_PUBLIC_KEY !== "SUA_CHAVE_PUBLICA_VAPID_AQUI") {
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
-      console.log("[GasFinder] Push subscription:", JSON.stringify(subscription));
-    }
+    await navigator.serviceWorker.register("./sw.js");
+    console.log("[GasFinder] Service Worker registrado");
   } catch (error) {
     console.error("[GasFinder] Erro ao registrar Service Worker:", error);
   }
 }
+
+async function ativarNotificacoesPush() {
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+    showAlert("Este navegador não suporta notificações.");
+    return false;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    showAlert("Permissão de notificação negada.");
+    return false;
+  }
+
+  if (VAPID_PUBLIC_KEY === "SUA_CHAVE_PUBLICA_VAPID_AQUI") {
+    showAlert("Notificações locais ativas. Configure a chave VAPID para push remoto.", "success");
+    return true;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+    console.log("[GasFinder] Push subscription:", JSON.stringify(subscription));
+    showAlert("Notificações push ativadas!", "success");
+    return true;
+  } catch (error) {
+    console.error(error);
+    showAlert("Não foi possível ativar o push.");
+    return false;
+  }
+}
+
+window.ativarNotificacoesPush = ativarNotificacoesPush;
 
 function notificarMotoristasLocal(nomePostoOuCidade, tipoCombustivel, novoPreco) {
   if (Notification.permission !== "granted" || !navigator.serviceWorker?.controller) {
@@ -1916,6 +2043,10 @@ function notificarMotoristasLocal(nomePostoOuCidade, tipoCombustivel, novoPreco)
 }
 
 window.addEventListener("load", registrarPWA);
+
+$("enablePushBtn")?.addEventListener("click", () => {
+  ativarNotificacoesPush();
+});
 
 // ==================== 19. BOOT ====================
 buscarPostosDoBanco();

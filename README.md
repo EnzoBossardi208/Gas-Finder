@@ -1,23 +1,33 @@
-Gas-Finder
+# GasFinder RS
 
-Gas-Finder is a web platform designed to help users find the best fuel prices in Vera Cruz and Santa Cruz do Sul. The project aims to make it easier to compare gas station prices, helping people save time and money before refueling.
+Plataforma web para comparar preços de combustível em **Vera Cruz** e **Santa Cruz do Sul** (RS).
 
-Features
-Search fuel prices in Vera Cruz and Santa Cruz do Sul
-Compare prices between different gas stations
-Simple and user-friendly interface
-Fast access to updated information
-Helps users find the most affordable option nearby
-Purpose
+## Versão
 
-The goal of Gas-Finder is to provide a practical solution for people who want to avoid overpaying for fuel and quickly locate the best available prices in their area.
+**v1.1.0** — app funcional com autenticação Supabase, papéis (motorista / dono / admin), PWA e tema claro/escuro.
 
-Technologies
+## Funcionalidades
 
-This project can be built with technologies such as:
+- Login, cadastro e seleção de perfil
+- Busca por cidade, nome, geolocalização e filtros
+- Favoritos, comparador e relatório de preços
+- Painel do posto parceiro (preços e promoções)
+- Painel administrador master
+- Perfil do usuário e tema claro/escuro
+- PWA (instalável + service worker)
 
-HTML
-CSS
-JavaScript
+## Tecnologias
 
-Gas-Finder — Find better fuel prices, save more money.
+- HTML, CSS, JavaScript
+- Supabase (Auth + banco)
+- Service Worker / Manifest (PWA)
+
+## Como abrir
+
+Abra `index.html` em um servidor local (recomendado) ou via extensão Live Server no VS Code/Cursor.
+
+## Observações
+
+- Admin: `suporte@gasfinder.com`
+- Relatórios colaborativos dependem das políticas RLS do Supabase
+- Para push remoto, configure a chave VAPID em `app.js`
