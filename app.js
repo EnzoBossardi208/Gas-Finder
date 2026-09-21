@@ -1,222 +1,21 @@
+/* ==========================================================================
+   GasFinder RS — app.js
+   ========================================================================== */
+
+// ==================== 1. CONFIG ====================
 const supabaseUrl = "https://tteozknocjjbsjjehqel.supabase.co";
 const supabaseKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0ZW96a25vY2pqYnNqamVocWVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MTczOTYsImV4cCI6MjA5NTI5MzM5Nn0.FDRqKNW3BvuyqS4vmYnY3CiD4ug2cPXsZMBDMeEvH_o";
+const ADMIN_EMAIL = "suporte@gasfinder.com";
+const VAPID_PUBLIC_KEY = "SUA_CHAVE_PUBLICA_VAPID_AQUI";
+
 const clienteSupabase = supabase.createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false, // Impede que o login seja salvo entre recarregamentos da página
-  },
+  auth: { persistSession: true, autoRefreshToken: true },
 });
 
-// ==================== FORMATADOR DE TEMPO ====================
-function formatarTempo(dataIso) {
-  if (!dataIso) return "Atualização recente";
-
-  const data = new Date(dataIso);
-  const agora = new Date();
-  const diffMs = agora - data;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHoras = Math.floor(diffMins / 60);
-  const diffDias = Math.floor(diffHoras / 24);
-
-  if (diffMins < 60)
-    return `Atualizado há ${diffMins === 0 ? 1 : diffMins} min`;
-  if (diffHoras < 24) return `Atualizado há ${diffHoras}h`;
-  if (diffDias === 1) return `Atualizado ontem`;
-  return `Atualizado há ${diffDias} dias`;
-}
-
-// ==================== PONTE COM O SUPABASE ====================
+// ==================== 2. STATE ====================
 let POSTOS_DATA = {};
 let CIDADES_DISPONIVEIS = [];
-
-function getPostosPorCidade(cidade) {
-  return POSTOS_DATA[cidade] || [];
-}
-
-// 1. BUSCA OS POSTOS DO BANCO
-async function buscarPostosDoBanco() {
-  const { data: postos, error } = await clienteSupabase
-    .from("postos")
-    .select("*");
-
-  if (error) {
-    console.error("Erro ao buscar postos do Supabase:", error);
-    return;
-  }
-
-  const POSTOS_DATA_DO_BANCO = {};
-
-  postos.forEach((posto) => {
-    if (!POSTOS_DATA_DO_BANCO[posto.cidade]) {
-      POSTOS_DATA_DO_BANCO[posto.cidade] = [];
-    }
-
-    POSTOS_DATA_DO_BANCO[posto.cidade].push({
-      id: posto.codigo_posto,
-      city: posto.cidade,
-      name: posto.nome,
-      brand: posto.bandeira,
-      address: posto.endereco,
-      lat: parseFloat(posto.latitude) || 0,
-      lng: parseFloat(posto.longitude) || 0,
-      mapsLink: posto.link_maps,
-      directionsLink: posto.link_maps,
-      gasolinaComum: parseFloat(posto.gasolina_comum || 0),
-      gasolinaAditivada: parseFloat(posto.gasolina_aditivada || 0),
-      etanol: parseFloat(posto.etanol || 0),
-      diesel: parseFloat(posto.diesel || 0),
-      dieselS10: parseFloat(posto.diesel_s10 || 0),
-      hasPromotion: posto.has_promotion,
-      promotionFuel: posto.promotion_fuel,
-      promoPrice: parseFloat(posto.promo_price || 0),
-      promoValidity: posto.promo_validity,
-      openingHours: posto.opening_hours || "24h",
-      phone: posto.phone || "",
-      dono_id: posto.dono_id,
-      updated_at: posto.updated_at,
-    });
-  });
-
-  POSTOS_DATA = POSTOS_DATA_DO_BANCO;
-  CIDADES_DISPONIVEIS = Object.keys(POSTOS_DATA);
-
-  if (currentUser) {
-    if (currentUser.role === "driver") {
-      updateHeroStats();
-      populateReportCity();
-      if (currentCity) applyFilters();
-    } else if (currentUser.role === "station_owner") {
-      initManageView();
-    }
-  }
-}
-
-// 2. ATUALIZA PREÇOS TRAVADO POR SEGURANÇA (DONO SÓ EDITA O DELE)
-async function atualizarPrecosNoBanco(codigoPosto, novosDados) {
-  // Se for o admin de testes local, permite atualizar sem checar dono_id rígido do Supabase Auth
-  if (currentUser && currentUser.role === "admin") {
-    const { error } = await clienteSupabase
-      .from("postos")
-      .update({
-        gasolina_comum: parseFloat(novosDados.gasolinaComum),
-        gasolina_aditivada: parseFloat(novosDados.gasolinaAditivada),
-        etanol: parseFloat(novosDados.etanol),
-        diesel: parseFloat(novosDados.diesel),
-        diesel_s10: parseFloat(novosDados.dieselS10),
-        has_promotion: novosDados.hasPromotion,
-        promotion_fuel: novosDados.promotionFuel,
-        promo_price: parseFloat(novosDados.promoPrice),
-        promo_validity: novosDados.promoValidity,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("codigo_posto", codigoPosto);
-
-    if (error) {
-      console.error(error);
-      return false;
-    }
-    return true;
-  }
-
-  // Fluxo seguro para usuários normais logados
-  const { data: postoAtual } = await clienteSupabase
-    .from("postos")
-    .select("dono_id")
-    .eq("codigo_posto", codigoPosto)
-    .single();
-
-  if (!postoAtual || postoAtual.dono_id !== currentUser.uid) {
-    showAlert(
-      "Erro de Segurança: Você não é o dono cadastrado deste posto!",
-      "error",
-    );
-    return false;
-  }
-
-  const { error } = await clienteSupabase
-    .from("postos")
-    .update({
-      gasolina_comum: parseFloat(novosDados.gasolinaComum),
-      gasolina_aditivada: parseFloat(novosDados.gasolinaAditivada),
-      etanol: parseFloat(novosDados.etanol),
-      diesel: parseFloat(novosDados.diesel),
-      diesel_s10: parseFloat(novosDados.dieselS10),
-      has_promotion: novosDados.hasPromotion,
-      promotion_fuel: novosDados.promotionFuel,
-      promo_price: parseFloat(novosDados.promoPrice),
-      promo_validity: novosDados.promoValidity, // <-- ADICIONE ESTA VÍRGULA AQUI NO FINAL DA LINHA!
-      updated_at: new Date().toISOString(),
-    })
-    .eq("codigo_posto", codigoPosto);
-
-  if (error) {
-    console.error("Erro ao salvar no Supabase:", error);
-    showAlert("Erro ao salvar os dados no servidor!", "error");
-    return false;
-  }
-  return true;
-}
-
-// 3. VINCULA POSTO EXISTENTE AO DONO ATUAL
-async function vincularPostoAoDono(codigoPosto) {
-  if (currentUser && currentUser.role === "admin") return true;
-
-  const { error } = await clienteSupabase
-    .from("postos")
-    .update({ dono_id: currentUser.uid })
-    .eq("codigo_posto", codigoPosto);
-
-  if (error) {
-    console.error("Erro ao vincular dono:", error);
-    return false;
-  }
-  return true;
-}
-
-// 4. CRIA NOVO POSTO ATRIBUINDO O LOGADO COMO DONO AUTOMÁTICO
-async function criarNovoPostoNoBanco(dados) {
-  const codigoUnico =
-    dados.cidade.substring(0, 3).toLowerCase() + "-" + Date.now();
-
-  let linkFinalMaps = dados.linkMaps;
-  if (!linkFinalMaps) {
-    const busca = encodeURIComponent(
-      `${dados.nome} ${dados.endereco} ${dados.cidade}`,
-    );
-    linkFinalMaps = `http://googleusercontent.com/maps.google.com/${busca}`;
-  }
-
-  const novoPosto = {
-    codigo_posto: codigoUnico,
-    cidade: dados.cidade,
-    nome: dados.nome,
-    bandeira: dados.bandeira || "Branca",
-    endereco: dados.endereco || "Endereço não informado",
-    link_maps: linkFinalMaps,
-    gasolina_comum: 0,
-    gasolina_aditivada: 0,
-    etanol: 0,
-    diesel: 0,
-    diesel_s10: 0,
-    has_promotion: false,
-    opening_hours: "Horário comercial",
-    dono_id:
-      currentUser && currentUser.role === "admin" ? null : currentUser.uid,
-  };
-
-  const { error } = await clienteSupabase.from("postos").insert([novoPosto]);
-
-  if (error) {
-    console.error("Erro ao criar posto:", error);
-    showAlert("Erro ao criar o posto.", "error");
-    return null;
-  }
-  return codigoUnico;
-}
-
-buscarPostosDoBanco();
-
-// ==================== ESTADO GLOBAL CONTROLES DOS COMPONENTES ====================
 let currentUser = null;
 let currentCity = null;
 let currentStations = [];
@@ -225,12 +24,11 @@ let favorites = JSON.parse(localStorage.getItem("gf_favorites") || "[]");
 let compareList = [];
 let activeFilters = { sort: "price", fuel: null, promoOnly: false };
 let customPrices = JSON.parse(localStorage.getItem("gf_custom_prices") || "{}");
-let notifications = JSON.parse(
-  localStorage.getItem("gf_notifications") || "[]",
-);
+let notifications = JSON.parse(localStorage.getItem("gf_notifications") || "[]");
 let managedStationId = localStorage.getItem("gf_managed_station") || null;
+let authBootstrapped = false;
 
-// ==================== ELEMENTOS HTML ====================
+// ==================== 3. DOM HELPERS ====================
 const $ = (id) => document.getElementById(id);
 
 const loginScreen = $("loginScreen");
@@ -242,8 +40,6 @@ const registerForm = $("registerForm");
 const showRegisterBtn = $("showRegisterBtn");
 const showLoginBtn = $("showLoginBtn");
 const backToLoginFromRole = $("backToLoginFromRole");
-const logoutBtn = $("logoutBtn");
-const themeBtn = $("themeBtn");
 const heroSection = $("heroSection");
 const resultsArea = $("resultsArea");
 const stationsGrid = $("stationsGrid");
@@ -282,9 +78,6 @@ const calcPrice = $("calcPrice");
 const calcLiters = $("calcLiters");
 const calcBtn = $("calcBtn");
 const calcResult = $("calcResult");
-
-const notificationsView = $("notificationsView");
-const manageView = $("manageView");
 const notificationsList = $("notificationsList");
 const noNotifications = $("noNotifications");
 const clearNotificationsBtn = $("clearNotificationsBtn");
@@ -298,154 +91,390 @@ const saveManageBtn = $("saveManageBtn");
 const changeStationBtn = $("changeStationBtn");
 const manageSuccess = $("manageSuccess");
 
-// ==================== TEMA ====================
-function initTheme() {
-  const t = localStorage.getItem("gf_theme") || "light";
-  if (t === "dark") {
-    document.body.classList.add("dark");
-    if (themeBtn) themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+// ==================== 4. UTILS ====================
+function formatarTempo(dataIso) {
+  if (!dataIso) return "Atualização recente";
+  const data = new Date(dataIso);
+  const agora = new Date();
+  const diffMs = agora - data;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHoras = Math.floor(diffMins / 60);
+  const diffDias = Math.floor(diffHoras / 24);
+  if (diffMins < 60) return `Atualizado há ${diffMins === 0 ? 1 : diffMins} min`;
+  if (diffHoras < 24) return `Atualizado há ${diffHoras}h`;
+  if (diffDias === 1) return `Atualizado ontem`;
+  return `Atualizado há ${diffDias} dias`;
+}
+
+function showAlert(msg, type = "error") {
+  const el = document.createElement("div");
+  el.style.cssText = `
+    position: fixed; top: 80px; right: 20px; z-index: 999999;
+    background: ${type === "success" ? "var(--accent)" : "var(--red)"};
+    color: #fff; padding: 0.85rem 1.25rem; border-radius: 10px;
+    font-size: 0.9rem; font-weight: 600; font-family: var(--font);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2); animation: slideUp 0.25s ease;
+  `;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function getPostosPorCidade(cidade) {
+  return POSTOS_DATA[cidade] || [];
+}
+
+function getTodosPostos() {
+  return Object.values(POSTOS_DATA).flat();
+}
+
+function applyCustomPrices(posto) {
+  const cp = customPrices[posto.id];
+  if (!cp) return posto;
+  return { ...posto, ...cp };
+}
+
+function fuelLabel(fuel) {
+  return (
+    {
+      gasolinaComum: "Gasolina",
+      gasolinaAditivada: "Aditivada",
+      etanol: "Etanol",
+      diesel: "Diesel",
+      dieselS10: "Diesel S10",
+    }[fuel] || fuel
+  );
+}
+
+function saveRole(role) {
+  if (role) localStorage.setItem("gf_user_role", role);
+  else localStorage.removeItem("gf_user_role");
+}
+
+function getSavedRole() {
+  return localStorage.getItem("gf_user_role");
+}
+
+function showScreen(screenEl) {
+  [loginScreen, registerScreen, roleScreen, appScreen].forEach((s) => {
+    if (s) s.classList.remove("active");
+  });
+  if (screenEl) screenEl.classList.add("active");
+}
+
+function isAdminUser(user = currentUser) {
+  return user && (user.role === "admin" || user.email === ADMIN_EMAIL);
+}
+
+// ==================== 5. SUPABASE / DATA API ====================
+function mapPostoFromDb(posto) {
+  return {
+    id: posto.codigo_posto,
+    city: posto.cidade,
+    name: posto.nome,
+    brand: posto.bandeira,
+    address: posto.endereco,
+    lat: parseFloat(posto.latitude) || 0,
+    lng: parseFloat(posto.longitude) || 0,
+    mapsLink: posto.link_maps,
+    directionsLink: posto.link_maps,
+    gasolinaComum: parseFloat(posto.gasolina_comum || 0),
+    gasolinaAditivada: parseFloat(posto.gasolina_aditivada || 0),
+    etanol: parseFloat(posto.etanol || 0),
+    diesel: parseFloat(posto.diesel || 0),
+    dieselS10: parseFloat(posto.diesel_s10 || 0),
+    hasPromotion: !!posto.has_promotion,
+    promotionFuel: posto.promotion_fuel,
+    promoPrice: parseFloat(posto.promo_price || 0),
+    promoValidity: posto.promo_validity,
+    openingHours: posto.opening_hours || "24h",
+    phone: posto.phone || "",
+    dono_id: posto.dono_id,
+    updated_at: posto.updated_at,
+  };
+}
+
+async function buscarPostosDoBanco() {
+  const { data: postos, error } = await clienteSupabase.from("postos").select("*");
+
+  if (error) {
+    console.error("Erro ao buscar postos do Supabase:", error);
+    return;
+  }
+
+  const mapped = {};
+  (postos || []).forEach((posto) => {
+    if (!mapped[posto.cidade]) mapped[posto.cidade] = [];
+    mapped[posto.cidade].push(mapPostoFromDb(posto));
+  });
+
+  POSTOS_DATA = mapped;
+  CIDADES_DISPONIVEIS = Object.keys(POSTOS_DATA);
+  updateHeroStats();
+  updateCityCounters();
+  populateReportCity();
+
+  if (currentUser) {
+    if (currentUser.role === "driver" && currentCity) applyFilters();
+    if (currentUser.role === "station_owner" || isAdminUser()) {
+      if ($("manageView")?.classList.contains("active")) initManageView();
+      if (isAdminUser()) carregarPostosAdmin();
+    }
   }
 }
-const themeBtnHandler = () => {
+
+async function atualizarPrecosNoBanco(codigoPosto, novosDados) {
+  if (!currentUser) return false;
+
+  if (!isAdminUser()) {
+    const { data: postoAtual } = await clienteSupabase
+      .from("postos")
+      .select("dono_id")
+      .eq("codigo_posto", codigoPosto)
+      .single();
+
+    if (!postoAtual || postoAtual.dono_id !== currentUser.uid) {
+      showAlert("Erro de Segurança: Você não é o dono cadastrado deste posto!", "error");
+      return false;
+    }
+  }
+
+  const { error } = await clienteSupabase
+    .from("postos")
+    .update({
+      gasolina_comum: parseFloat(novosDados.gasolinaComum) || 0,
+      gasolina_aditivada: parseFloat(novosDados.gasolinaAditivada) || 0,
+      etanol: parseFloat(novosDados.etanol) || 0,
+      diesel: parseFloat(novosDados.diesel) || 0,
+      diesel_s10: parseFloat(novosDados.dieselS10) || 0,
+      has_promotion: !!novosDados.hasPromotion,
+      promotion_fuel: novosDados.promotionFuel || "",
+      promo_price: parseFloat(novosDados.promoPrice) || 0,
+      promo_validity: novosDados.promoValidity || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("codigo_posto", codigoPosto);
+
+  if (error) {
+    console.error("Erro ao salvar no Supabase:", error);
+    showAlert("Erro ao salvar os dados no servidor!", "error");
+    return false;
+  }
+  return true;
+}
+
+async function vincularPostoAoDono(codigoPosto) {
+  if (!currentUser) return false;
+  if (isAdminUser()) return true;
+
+  const { error } = await clienteSupabase
+    .from("postos")
+    .update({ dono_id: currentUser.uid })
+    .eq("codigo_posto", codigoPosto)
+    .is("dono_id", null);
+
+  if (error) {
+    console.error("Erro ao vincular posto:", error);
+    showAlert("Não foi possível vincular o posto. Talvez já tenha dono.", "error");
+    return false;
+  }
+  return true;
+}
+
+async function criarNovoPostoNoBanco(dados) {
+  const codigoUnico =
+    dados.cidade.substring(0, 3).toLowerCase() + "-" + Date.now();
+
+  let linkFinalMaps = dados.linkMaps;
+  if (!linkFinalMaps) {
+    const busca = encodeURIComponent(
+      `${dados.nome} ${dados.endereco || ""} ${dados.cidade}`,
+    );
+    linkFinalMaps = `https://www.google.com/maps/search/?api=1&query=${busca}`;
+  }
+
+  const novoPosto = {
+    codigo_posto: codigoUnico,
+    cidade: dados.cidade,
+    nome: dados.nome,
+    bandeira: dados.bandeira || "Branca",
+    endereco: dados.endereco || "Endereço não informado",
+    link_maps: linkFinalMaps,
+    gasolina_comum: 0,
+    gasolina_aditivada: 0,
+    etanol: 0,
+    diesel: 0,
+    diesel_s10: 0,
+    has_promotion: false,
+    opening_hours: "Horário comercial",
+    dono_id: isAdminUser() ? null : currentUser.uid,
+  };
+
+  const { error } = await clienteSupabase.from("postos").insert([novoPosto]);
+  if (error) {
+    console.error("Erro ao criar posto:", error);
+    showAlert("Erro ao criar o posto.", "error");
+    return null;
+  }
+  return codigoUnico;
+}
+
+async function apagarPostoAdmin(codigoPosto) {
+  if (
+    !confirm("Tem certeza que deseja apagar este posto? Esta ação é irreversível.")
+  ) {
+    return;
+  }
+
+  const { error } = await clienteSupabase
+    .from("postos")
+    .delete()
+    .eq("codigo_posto", codigoPosto);
+
+  if (error) {
+    console.error("Erro ao apagar posto:", error);
+    showAlert("Erro ao apagar o posto.", "error");
+    return;
+  }
+
+  showAlert("Posto apagado com sucesso!", "success");
+  await buscarPostosDoBanco();
+  carregarPostosAdmin();
+  if (currentCity) applyFilters();
+}
+
+window.apagarPostoAdmin = apagarPostoAdmin;
+
+async function editarPostoAdmin(codigoPosto) {
+  const posto = getTodosPostos().find((p) => p.id === codigoPosto);
+  if (!posto) {
+    showAlert("Posto não encontrado.", "error");
+    return;
+  }
+
+  managedStationId = codigoPosto;
+  localStorage.setItem("gf_managed_station", codigoPosto);
+  showView("manageView");
+  initManageView();
+  showAlert(`Editando: ${posto.name}`, "success");
+}
+
+window.editarPostoAdmin = editarPostoAdmin;
+
+// ==================== 6. THEME ====================
+function initTheme() {
+  const t = localStorage.getItem("gf_theme") || "light";
+  if (t === "dark") document.body.classList.add("dark");
+  updateThemeButtonIcon();
+}
+
+function updateThemeButtonIcon() {
+  const themeBtn = $("themeBtn");
+  if (!themeBtn) return;
+  const isDark = document.body.classList.contains("dark");
+  themeBtn.innerHTML = isDark
+    ? '<i class="fas fa-sun"></i>'
+    : '<i class="fas fa-moon"></i>';
+}
+
+function toggleTheme() {
   document.body.classList.toggle("dark");
   const isDark = document.body.classList.contains("dark");
   localStorage.setItem("gf_theme", isDark ? "dark" : "light");
-  if (themeBtn)
-    themeBtn.innerHTML = isDark
-      ? '<i class="fas fa-sun"></i>'
-      : '<i class="fas fa-moon"></i>';
-};
-initTheme();
-if (themeBtn) themeBtn.addEventListener("click", themeBtnHandler);
+  updateThemeButtonIcon();
+}
 
-// ==================== AUTENTICAÇÃO REAL COM SUPABASE ====================
+initTheme();
+
+// ==================== 7. AUTH ====================
+function buildCurrentUser(user, roleOverride) {
+  const isAdmin = user.email === ADMIN_EMAIL;
+  const savedRole = roleOverride || getSavedRole();
+  return {
+    email: user.email,
+    name: isAdmin ? "Administrador Master" : user.email.split("@")[0],
+    uid: user.id,
+    role: isAdmin ? "admin" : savedRole || null,
+  };
+}
+
+async function handleAuthenticatedUser(user, { skipRoleScreen = false } = {}) {
+  currentUser = buildCurrentUser(user);
+
+  if (isAdminUser(currentUser)) {
+    currentUser.role = "admin";
+    saveRole("admin");
+    showScreen(appScreen);
+    initApp();
+    return;
+  }
+
+  if (currentUser.role === "driver" || currentUser.role === "station_owner") {
+    showScreen(appScreen);
+    initApp();
+    return;
+  }
+
+  if (skipRoleScreen) {
+    showScreen(roleScreen);
+    return;
+  }
+
+  showScreen(roleScreen);
+}
+
 if (showRegisterBtn) {
   showRegisterBtn.addEventListener("click", (e) => {
     e.preventDefault();
-    loginScreen.classList.remove("active");
-    registerScreen.classList.add("active");
-  });
-}
-if (showLoginBtn) {
-  showLoginBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    registerScreen.classList.remove("active");
-    loginScreen.classList.add("active");
+    showScreen(registerScreen);
   });
 }
 
-// FORMULÁRIO DE LOGIN AUTO-GERENCIADO COM TRAVA DE SEGURANÇA MÁXIMA
+if (showLoginBtn) {
+  showLoginBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    showScreen(loginScreen);
+  });
+}
+
+if (backToLoginFromRole) {
+  backToLoginFromRole.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await logout();
+  });
+}
+
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = $("loginEmail").value.trim();
     const password = $("loginPassword").value;
-
     if (!email || !password) {
       showAlert("Preencha todos os campos para continuar.");
       return;
     }
 
-    const btnTextoOriginal = loginForm.querySelector(
-      'button[type="submit"]',
-    ).textContent;
-    loginForm.querySelector('button[type="submit"]').textContent =
-      "Autenticando...";
+    const btn = loginForm.querySelector('button[type="submit"]');
+    const original = btn.textContent;
+    btn.textContent = "Autenticando...";
 
-    // Login Real via Supabase Auth
     const { data, error } = await clienteSupabase.auth.signInWithPassword({
       email,
       password,
     });
-    loginForm.querySelector('button[type="submit"]').textContent =
-      btnTextoOriginal;
+    btn.textContent = original;
 
     if (error) {
       showAlert("E-mail ou senha inválidos. Tente novamente.");
       return;
     }
 
-    // 🛡️ TRAVA PRIVADA INVIOLÁVEL: Apenas este e-mail específico ganha papel de Admin no Frontend
-    // 🛡️ TRAVA PRIVADA INVIOLÁVEL: Apenas este e-mail específico ganha papel de Admin no clique do Login
-    if (data.user && data.user.email === "suporte@gasfinder.com") {
-      currentUser = {
-        email: data.user.email,
-        name: "Administrador Master",
-        role: "admin",
-        uid: data.user.id,
-      };
-      $("loginScreen").classList.remove("active");
-      $("appScreen").classList.add("active");
-
-      const painel = $("painel-admin");
-      if (painel) painel.style.display = "block";
-
-      initApp();
-      if (typeof inicializarAlternadorVisao === "function")
-        inicializarAlternadorVisao();
-      showAlert("Logado no Modo Administrador Master!", "success");
-      return;
-    }
-
-    // Fluxo normal para qualquer outro e-mail (Motoristas e Donos de Posto comuns)
-    // Fluxo normal para qualquer outro e-mail (Motoristas e Donos de Posto comuns)
-    currentUser = {
-      email: data.user.email,
-      name: data.user.email.split("@")[0],
-      uid: data.user.id,
-    };
-    $("loginScreen").classList.remove("active"); // <-- ADICIONADO $(' ')
-    $("roleScreen").classList.add("active"); // <-- ADICIONADO $(' ')
+    authBootstrapped = true;
+    await handleAuthenticatedUser(data.user);
+    if (isAdminUser()) showAlert("Logado no Modo Administrador!", "success");
   });
 }
 
-// Monitor de Sessão Ativa (Evita deslogar ao apertar F5 com Barreira de Segurança)
-// Monitor de Sessão Ativa (Evita deslogar ao apertar F5 com Barreira de Segurança)
-clienteSupabase.auth.onAuthStateChange(async (event, session) => {
-  if (session && session.user) {
-    // 🛡️ SEGUNDA BARREIRA: Mantém a trava rígida ao recarregar a página
-    if (session.user.email === "suporte@gasfinder.com") {
-      currentUser = {
-        email: session.user.email,
-        name: "Administrador Master",
-        role: "admin",
-        uid: session.user.id,
-      };
-
-      // ADICIONA ESTAS DUAS LINHAS AQUI 👇
-      verificarPermissaoAdmin(currentUser);
-      carregarDadosPerfil(currentUser.uid || currentUser.id);
-
-      const painel = $("painel-admin");
-      if (painel) {
-        painel.style.display = "block";
-      }
-
-      // Corrige as linhas vermelhas e joga o Admin para o Painel Geral
-      if ($("loginScreen")) $("loginScreen").classList.remove("active");
-      if ($("appScreen")) $("appScreen").classList.add("active");
-
-      // Inicializa a aplicação e o alternador de telas
-      if (typeof initApp === "function") initApp();
-      if (typeof inicializarAlternadorVisao === "function")
-        inicializarAlternadorVisao();
-    } else {
-      // Qualquer outro e-mail é forçado a assumir um papel comum por segurança
-      currentUser = {
-        email: session.user.email,
-        name: session.user.email.split("@")[0],
-        uid: session.user.id,
-        role: "user",
-      };
-
-      // Joga o usuário comum para a tela de seleção de perfil (Motorista ou Posto)
-      if ($("loginScreen")) $("loginScreen").classList.remove("active");
-      if ($("roleScreen")) $("roleScreen").classList.add("active");
-    }
-  }
-});
-
-// FORMULÁRIO DE CADASTRO REAL
 if (registerForm) {
   registerForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -467,19 +496,15 @@ if (registerForm) {
       return;
     }
 
-    const btnTextoOriginal = registerForm.querySelector(
-      'button[type="submit"]',
-    ).textContent;
-    registerForm.querySelector('button[type="submit"]').textContent =
-      "Criando Usuário...";
+    const btn = registerForm.querySelector('button[type="submit"]');
+    const original = btn.textContent;
+    btn.textContent = "Criando Usuário...";
 
     const { data, error } = await clienteSupabase.auth.signUp({
       email,
       password: pass,
     });
-
-    registerForm.querySelector('button[type="submit"]').textContent =
-      btnTextoOriginal;
+    btn.textContent = original;
 
     if (error) {
       showAlert("Erro ao registrar: " + error.message);
@@ -487,35 +512,31 @@ if (registerForm) {
     }
 
     showAlert("Conta criada com sucesso!", "success");
-    currentUser = { email: data.user.email, name: name, uid: data.user.id };
-    registerScreen.classList.remove("active");
-    roleScreen.classList.add("active");
+    authBootstrapped = true;
+    currentUser = {
+      email: data.user.email,
+      name,
+      uid: data.user.id,
+      role: null,
+    };
     registerForm.reset();
+    showScreen(roleScreen);
   });
 }
 
-if (backToLoginFromRole) {
-  backToLoginFromRole.addEventListener("click", (e) => {
-    e.preventDefault();
-    currentUser = null;
-    roleScreen.classList.remove("active");
-    loginScreen.classList.add("active");
-  });
-}
-
-// ==================== ROLE SELECTION ====================
 document.querySelectorAll(".role-card").forEach((card) => {
   card.addEventListener("click", () => selectRole(card.dataset.role));
 });
+
 function selectRole(role) {
   if (!currentUser) return;
+  if (role !== "driver" && role !== "station_owner") return;
   currentUser.role = role;
-  roleScreen.classList.remove("active");
-  appScreen.classList.add("active");
+  saveRole(role);
+  showScreen(appScreen);
   initApp();
 }
 
-// ==================== LOGOUT ====================
 async function logout() {
   await clienteSupabase.auth.signOut();
   currentUser = null;
@@ -523,110 +544,226 @@ async function logout() {
   currentStations = [];
   managedStationId = null;
   localStorage.removeItem("gf_managed_station");
-  appScreen.classList.remove("active");
-  loginScreen.classList.add("active");
-  document
-    .querySelectorAll(".view")
-    .forEach((v) => v.classList.remove("active"));
+  saveRole(null);
+
+  const adminPanel = $("adminPanelSection");
+  const adminSwitch = $("admin-switch-container");
+  if (adminPanel) adminPanel.style.display = "none";
+  if (adminSwitch) adminSwitch.style.display = "none";
+
+  document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
   if ($("searchView")) $("searchView").classList.add("active");
   if (heroSection) heroSection.style.display = "";
   if (resultsArea) resultsArea.style.display = "none";
   if ($("btnCriarPostoHtml")) $("btnCriarPostoHtml").remove();
   if ($("btnCriarPostoEdicaoHtml")) $("btnCriarPostoEdicaoHtml").remove();
+
+  showScreen(loginScreen);
 }
 
-// ==================== INIT ====================
-
-function buildNav() {
-  const nav = document.getElementById("mainNav");
-  if (!nav) return;
-
-  if (currentUser.role === "driver") {
-    nav.innerHTML = `
-            <button class="nav-item active" data-view="search"><i class="fas fa-search"></i><span>Buscar</span></button>
-            <button class="nav-item" data-view="favorites"><i class="fas fa-heart"></i><span>Favoritos</span></button>
-            <button class="nav-item" data-view="report"><i class="fas fa-bullhorn"></i><span>Avisar</span></button>
-            <button class="nav-item" id="themeBtn"><i class="fas fa-moon"></i></button>
-            <button class="nav-item logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Sair</span></button>
-        `;
-  } else if (
-    currentUser.role === "station_owner" ||
-    currentUser.role === "admin"
-  ) {
-    const loginScreen = document.getElementById("loginScreen");
-    const manageView = document.getElementById("manageView");
-    if (loginScreen) loginScreen.classList.remove("active");
-    if (manageView) manageView.classList.add("active");
-
-    if (typeof initManageView === "function") initManageView();
-    if (typeof inicializarAlternadorVisao === "function")
-      inicializarAlternadorVisao();
-  } else {
-    const loginScreen = document.getElementById("loginScreen");
-    const roleScreen = document.getElementById("roleScreen");
-    if (loginScreen) loginScreen.classList.remove("active");
-    if (roleScreen) roleScreen.classList.add("active");
+clienteSupabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === "SIGNED_OUT" || !session) {
+    if (event === "SIGNED_OUT") {
+      currentUser = null;
+      showScreen(loginScreen);
+    }
+    return;
   }
 
-  document.querySelectorAll(".nav-item[data-view]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (typeof showView === "function") showView(btn.dataset.view);
+  // Restaura sessão no F5; evita reiniciar se o login/registro já montou o app
+  if (event === "INITIAL_SESSION" && !authBootstrapped && session.user) {
+    authBootstrapped = true;
+    await handleAuthenticatedUser(session.user);
+  }
+});
+
+// ==================== 8. SHELL UI (nav / views / init) ====================
+function buildNav() {
+  const nav = $("mainNav");
+  if (!nav || !currentUser) return;
+
+  const role = currentUser.role;
+
+  if (role === "driver") {
+    nav.innerHTML = `
+      <button class="nav-item active" data-target="searchView">
+        <i class="fas fa-search"></i><span>Buscar</span>
+      </button>
+      <button class="nav-item" data-target="favoritesView">
+        <i class="fas fa-heart"></i><span>Favoritos</span>
+      </button>
+      <button class="nav-item" data-target="reportView">
+        <i class="fas fa-bullhorn"></i><span>Avisar</span>
+      </button>
+      <button class="nav-item" data-target="notificationsView" style="position:relative">
+        <i class="fas fa-bell"></i><span>Avisos</span>
+        <span id="notifBadge" style="display:none;position:absolute;top:2px;right:8px;background:#e74c3c;color:#fff;font-size:0.65rem;padding:1px 5px;border-radius:10px;">0</span>
+      </button>
+      <button class="nav-item" id="themeBtn" type="button"><i class="fas fa-moon"></i></button>
+    `;
+  } else if (role === "station_owner") {
+    nav.innerHTML = `
+      <button class="nav-item active" data-target="manageView">
+        <i class="fas fa-gas-pump"></i><span>Meu Posto</span>
+      </button>
+      <button class="nav-item" data-target="notificationsView" style="position:relative">
+        <i class="fas fa-bell"></i><span>Avisos</span>
+        <span id="notifBadge" style="display:none;position:absolute;top:2px;right:8px;background:#e74c3c;color:#fff;font-size:0.65rem;padding:1px 5px;border-radius:10px;">0</span>
+      </button>
+      <button class="nav-item" id="themeBtn" type="button"><i class="fas fa-moon"></i></button>
+    `;
+  } else if (role === "admin") {
+    nav.innerHTML = `
+      <button class="nav-item active" data-target="adminPanelSection">
+        <i class="fas fa-user-shield"></i><span>Admin</span>
+      </button>
+      <button class="nav-item" data-target="manageView">
+        <i class="fas fa-gas-pump"></i><span>Postos</span>
+      </button>
+      <button class="nav-item" data-target="searchView">
+        <i class="fas fa-search"></i><span>Buscar</span>
+      </button>
+      <button class="nav-item" id="themeBtn" type="button"><i class="fas fa-moon"></i></button>
+    `;
+  }
+
+  bindNavListeners();
+  updateThemeButtonIcon();
+  updateNotifBadge();
+}
+
+function bindNavListeners() {
+  document.querySelectorAll("#mainNav .nav-item[data-target]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      showView(btn.dataset.target);
     });
   });
-  const logoutBtn = document.getElementById("logoutBtn");
-  const themeBtn = document.getElementById("themeBtn");
-  if (logoutBtn) logoutBtn.addEventListener("click", logout);
-  if (themeBtn) themeBtn.addEventListener("click", themeBtnHandler);
+
+  const themeBtn = $("themeBtn");
+  if (themeBtn) {
+    themeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleTheme();
+    });
+  }
+}
+
+function showView(viewId) {
+  const adminPanel = $("adminPanelSection");
+  document.querySelectorAll("#appScreen .view").forEach((v) => {
+    v.classList.remove("active");
+    if (v.id === "adminPanelSection") v.style.display = "none";
+  });
+
+  const target = $(viewId);
+  if (target) {
+    target.classList.add("active");
+    if (viewId === "adminPanelSection") target.style.display = "block";
+  }
+
+  document.querySelectorAll("#mainNav .nav-item[data-target]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.target === viewId);
+  });
+
+  if (viewId === "notificationsView") renderNotifications();
+  if (viewId === "favoritesView") renderFavorites();
+  if (viewId === "manageView") initManageView();
+  if (viewId === "adminPanelSection") {
+    if (adminPanel) adminPanel.style.display = "block";
+    carregarPostosAdmin();
+  }
+  if (viewId === "profileView") carregarPerfil();
 }
 
 function updateHeroStats() {
-  const total =
-    getPostosPorCidade("Vera Cruz").length +
-    getPostosPorCidade("Santa Cruz do Sul").length;
-  const promos = [
-    ...getPostosPorCidade("Vera Cruz"),
-    ...getPostosPorCidade("Santa Cruz do Sul"),
-  ].filter((p) => p.hasPromotion).length;
+  const todos = getTodosPostos();
+  const total = todos.length;
+  const promos = todos.filter((p) => p.hasPromotion).length;
   if ($("totalPostos")) $("totalPostos").textContent = total;
   if ($("totalPromos")) $("totalPromos").textContent = promos;
-  if ($("vcCount"))
-    $("vcCount").textContent =
-      getPostosPorCidade("Vera Cruz").length + " postos";
-  if ($("scsCount"))
-    $("scsCount").textContent =
-      getPostosPorCidade("Santa Cruz do Sul").length + " postos";
 }
 
-function showView(view) {
-  document
-    .querySelectorAll(".view")
-    .forEach((v) => v.classList.remove("active"));
-  document
-    .querySelectorAll(".nav-item[data-view]")
-    .forEach((b) => b.classList.remove("active"));
-  const viewMap = {
-    search: "searchView",
-    favorites: "favoritesView",
-    report: "reportView",
-    notifications: "notificationsView",
-    manage: "manageView",
-  };
-  if ($(viewMap[view])) $(viewMap[view]).classList.add("active");
-  const navBtn = document.querySelector(`[data-view="${view}"]`);
-  if (navBtn) navBtn.classList.add("active");
-  if (view === "notifications") renderNotifications();
-  if (view === "favorites") renderFavorites();
-  if (view === "manage") initManageView();
+function updateCityCounters() {
+  const countVeraCruz = getPostosPorCidade("Vera Cruz").length;
+  const countSantaCruz = getPostosPorCidade("Santa Cruz do Sul").length;
+  const spanVeraCruz = $("counter-vera-cruz");
+  const spanSantaCruz = $("counter-santa-cruz");
+  if (spanVeraCruz) {
+    spanVeraCruz.textContent = `${countVeraCruz} posto${countVeraCruz !== 1 ? "s" : ""}`;
+  }
+  if (spanSantaCruz) {
+    spanSantaCruz.textContent = `${countSantaCruz} posto${countSantaCruz !== 1 ? "s" : ""}`;
+  }
 }
 
-// ==================== CIDADES E BUSCA (DRIVERS) ====================
+function verificarPermissaoAdmin() {
+  const adminPanel = $("adminPanelSection");
+  const adminSwitch = $("admin-switch-container");
+  if (!adminPanel) return;
+
+  if (isAdminUser()) {
+    if (adminSwitch) adminSwitch.style.display = "flex";
+    carregarPostosAdmin();
+  } else {
+    adminPanel.style.display = "none";
+    if (adminSwitch) adminSwitch.style.display = "none";
+  }
+}
+
+function inicializarAlternadorVisao() {
+  const btn = $("btn-alternar-visao");
+  if (!btn || btn.dataset.listenerAtivo === "true") return;
+  btn.dataset.listenerAtivo = "true";
+
+  btn.addEventListener("click", () => {
+    if (!isAdminUser()) return;
+    const goingToDriver = btn.innerHTML.includes("Motorista");
+    if (goingToDriver) {
+      showView("searchView");
+      btn.innerHTML = '<i class="fas fa-toggle-off"></i> Voltar para Painel Admin';
+      btn.style.background = "#dc3545";
+      showAlert("Visão de Motorista ativada.", "success");
+    } else {
+      showView("adminPanelSection");
+      btn.innerHTML = '<i class="fas fa-toggle-on"></i> Mudar para Visão Motorista';
+      btn.style.background = "var(--blue, #007bff)";
+      showAlert("Visão de Administrador ativada.", "success");
+    }
+  });
+}
+
+function initApp() {
+  if (!currentUser) return;
+
+  buildNav();
+  updateHeroStats();
+  updateCityCounters();
+  populateReportCity();
+  updateNotifBadge();
+  verificarPermissaoAdmin();
+
+  if (currentUser.role === "station_owner") {
+    showView("manageView");
+  } else if (currentUser.role === "admin") {
+    inicializarAlternadorVisao();
+    showView("adminPanelSection");
+  } else {
+    showView("searchView");
+  }
+
+  carregarPerfil();
+}
+
+// ==================== 9. DRIVER — search / filters / render ====================
 document.querySelectorAll(".city-card").forEach((card) => {
   card.addEventListener("click", () => loadCity(card.dataset.city));
 });
+
 if (backBtn) {
   backBtn.addEventListener("click", () => {
-    heroSection.style.display = "";
-    resultsArea.style.display = "none";
+    if (heroSection) heroSection.style.display = "";
+    if (resultsArea) resultsArea.style.display = "none";
     currentCity = null;
     currentStations = [];
   });
@@ -647,26 +784,17 @@ function loadCity(cidade) {
     applyFilters();
     if (loader) loader.style.display = "none";
     populateUpdateStation(cidade);
-  }, 400);
-}
-
-function applyCustomPrices(posto) {
-  const cp = customPrices[posto.id];
-  if (!cp) return posto;
-  return { ...posto, ...cp };
+  }, 300);
 }
 
 if (heroSearchInput) {
   heroSearchInput.addEventListener("input", function () {
     const q = this.value.trim().toLowerCase();
     if (!q) return;
-    const allPostos = [
-      ...getPostosPorCidade("Vera Cruz"),
-      ...getPostosPorCidade("Santa Cruz do Sul"),
-    ];
-    const found = allPostos.find(
+    const found = getTodosPostos().find(
       (p) =>
-        p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q),
+        p.name.toLowerCase().includes(q) ||
+        (p.address || "").toLowerCase().includes(q),
     );
     if (found) {
       heroSearchInput.value = found.name;
@@ -674,22 +802,21 @@ if (heroSearchInput) {
       setTimeout(() => {
         const card = document.querySelector(`[data-id="${found.id}"]`);
         if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 600);
+      }, 500);
     }
   });
 
   heroSearchInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      const q = heroSearchInput.value.trim().toLowerCase();
-      if (!q) return;
-      const city = CIDADES_DISPONIVEIS.find((c) => c.toLowerCase().includes(q));
-      if (city) loadCity(city);
-    }
+    if (e.key !== "Enter") return;
+    const q = heroSearchInput.value.trim().toLowerCase();
+    if (!q) return;
+    const city = CIDADES_DISPONIVEIS.find((c) => c.toLowerCase().includes(q));
+    if (city) loadCity(city);
   });
 }
 
-// GEOLOCATION
 if (heroGeoBtn) heroGeoBtn.addEventListener("click", handleGeo);
+
 function handleGeo() {
   if (!navigator.geolocation) {
     showAlert("Geolocalização não suportada.");
@@ -698,8 +825,7 @@ function handleGeo() {
   heroGeoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+      const { latitude: lat, longitude: lng } = pos.coords;
       const centroids = {
         "Vera Cruz": { lat: -29.715, lng: -52.5083 },
         "Santa Cruz do Sul": { lat: -29.7175, lng: -52.4258 },
@@ -707,9 +833,7 @@ function handleGeo() {
       let closest = null;
       let minDist = Infinity;
       for (const [city, coord] of Object.entries(centroids)) {
-        const d = Math.sqrt(
-          Math.pow(lat - coord.lat, 2) + Math.pow(lng - coord.lng, 2),
-        );
+        const d = Math.hypot(lat - coord.lat, lng - coord.lng);
         if (d < minDist) {
           minDist = d;
           closest = city;
@@ -717,25 +841,23 @@ function handleGeo() {
       }
       heroGeoBtn.innerHTML = '<i class="fas fa-location-arrow"></i>';
       showAlert(`Carregando ${closest}...`, "success");
-      setTimeout(() => loadCity(closest), 500);
+      setTimeout(() => loadCity(closest), 400);
     },
-    (err) => {
+    () => {
       heroGeoBtn.innerHTML = '<i class="fas fa-location-arrow"></i>';
       showAlert("Não foi possível obter a localização.");
     },
   );
 }
 
-// FILTROS
 document.querySelectorAll(".filter-chip").forEach((chip) => {
   chip.addEventListener("click", () => {
     const sort = chip.dataset.sort;
     const filter = chip.dataset.filter;
     const fuel = chip.dataset.fuel;
+
     if (sort) {
-      document
-        .querySelectorAll("[data-sort]")
-        .forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll("[data-sort]").forEach((b) => b.classList.remove("active"));
       chip.classList.add("active");
       activeFilters.sort = sort;
     }
@@ -745,9 +867,7 @@ document.querySelectorAll(".filter-chip").forEach((chip) => {
     }
     if (fuel) {
       const wasActive = chip.classList.contains("active");
-      document
-        .querySelectorAll("[data-fuel]")
-        .forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll("[data-fuel]").forEach((b) => b.classList.remove("active"));
       if (!wasActive) {
         chip.classList.add("active");
         activeFilters.fuel = fuel;
@@ -762,14 +882,15 @@ document.querySelectorAll(".filter-chip").forEach((chip) => {
 function applyFilters() {
   let stations = [...allStations];
   const q = heroSearchInput ? heroSearchInput.value.trim().toLowerCase() : "";
+
   if (q && currentCity) {
     stations = stations.filter(
       (s) =>
-        s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q),
+        s.name.toLowerCase().includes(q) ||
+        (s.address || "").toLowerCase().includes(q),
     );
   }
-  if (activeFilters.promoOnly)
-    stations = stations.filter((s) => s.hasPromotion);
+  if (activeFilters.promoOnly) stations = stations.filter((s) => s.hasPromotion);
   if (activeFilters.fuel === "gasolina")
     stations = stations.filter((s) => s.gasolinaComum > 0);
   else if (activeFilters.fuel === "etanol")
@@ -788,78 +909,77 @@ function applyFilters() {
   renderPromos(stations);
 }
 
-// RENDER STATIONS (MOTORISTA)
 function renderStations(stations) {
   if (!stationsGrid) return;
+
   if (!stations.length) {
     stationsGrid.style.display = "none";
     if (noResults) noResults.style.display = "block";
     if (gridCount) gridCount.textContent = "0 postos encontrados";
     return;
   }
+
   stationsGrid.style.display = "grid";
   if (noResults) noResults.style.display = "none";
-  if (gridCount)
+  if (gridCount) {
     gridCount.textContent = `${stations.length} posto${stations.length > 1 ? "s" : ""}`;
+  }
 
-  const cheapestPrice = Math.min(
-    ...stations.map((s) => s.gasolinaComum).filter((v) => v > 0),
-  );
+  const prices = stations.map((s) => s.gasolinaComum).filter((v) => v > 0);
+  const cheapestPrice = prices.length ? Math.min(...prices) : 0;
 
   stationsGrid.innerHTML = stations
     .map((s) => {
       const isCheapest = s.gasolinaComum === cheapestPrice && cheapestPrice > 0;
       const isFav = favorites.includes(s.id);
       const inCompare = compareList.includes(s.id);
-
       const tags = [];
-      if (isCheapest)
+
+      if (isCheapest) {
         tags.push(
           '<span class="tag tag-cheapest"><i class="fas fa-award"></i> Mais barato</span>',
         );
-      if (s.hasPromotion)
+      }
+      if (s.hasPromotion) {
         tags.push(
           '<span class="tag tag-promo"><i class="fas fa-tag"></i> Promoção</span>',
         );
-      if (s.openingHours === "24h")
+      }
+      if (s.openingHours === "24h") {
         tags.push('<span class="tag tag-h24">24h</span>');
+      }
 
-      const trendVal = (Math.random() * 0.08).toFixed(2);
-      const trendDir =
-        Math.random() > 0.55 ? "up" : Math.random() > 0.5 ? "down" : "stable";
-      const trendHtml =
-        trendDir === "up"
-          ? `<span class="trend-badge trend-up"><i class="fas fa-arrow-up"></i> +R$ ${trendVal}</span>`
-          : trendDir === "down"
-            ? `<span class="trend-badge trend-down"><i class="fas fa-arrow-down"></i> -R$ ${trendVal}</span>`
-            : `<span class="trend-badge trend-stable"><i class="fas fa-minus"></i> Estável</span>`;
+      const updatedHtml = s.updated_at
+        ? `<span class="trend-badge trend-stable"><i class="fas fa-clock"></i> ${formatarTempo(s.updated_at)}</span>`
+        : "";
 
       const getPriceHtml = (fuelVal, isPromoMatch, oldVal) => {
-        if (fuelVal === 0)
+        if (!fuelVal || fuelVal === 0)
           return `<span class="price-val" style="color:#aaa">--</span>`;
         if (isPromoMatch)
           return `<span class="price-val promo">R$ ${s.promoPrice.toFixed(2)}</span><span class="price-old">R$ ${oldVal.toFixed(2)}</span>`;
         return `<span class="price-val">R$ ${fuelVal.toFixed(2)}</span>`;
       };
 
-      let gasHtml = getPriceHtml(
+      const gasHtml = getPriceHtml(
         s.gasolinaComum,
         s.hasPromotion && s.promotionFuel === "gasolinaComum",
         s.gasolinaComum,
       );
-      let aditHtml = getPriceHtml(
+      const aditHtml = getPriceHtml(
         s.gasolinaAditivada,
         s.hasPromotion && s.promotionFuel === "gasolinaAditivada",
         s.gasolinaAditivada,
       );
-      let etanolHtml = getPriceHtml(
+      const etanolHtml = getPriceHtml(
         s.etanol,
         s.hasPromotion && s.promotionFuel === "etanol",
         s.etanol,
       );
-      let dieselHtml = getPriceHtml(
+      const dieselHtml = getPriceHtml(
         s.dieselS10 || s.diesel,
-        s.hasPromotion && s.promotionFuel === "dieselS10",
+        s.hasPromotion &&
+          (s.promotionFuel === "dieselS10" || s.promotionFuel === "diesel"),
         s.dieselS10 || s.diesel,
       );
 
@@ -867,11 +987,13 @@ function renderStations(stations) {
       <div class="station-card${isCheapest ? " is-cheapest" : ""}" data-id="${s.id}">
         <div class="card-top">
           <div class="card-name">${s.name}</div>
-          <button class="fav-btn${isFav ? " active" : ""}" data-id="${s.id}"><i class="${isFav ? "fas" : "far"} fa-heart"></i></button>
+          <button class="fav-btn${isFav ? " active" : ""}" data-id="${s.id}">
+            <i class="${isFav ? "fas" : "far"} fa-heart"></i>
+          </button>
         </div>
         ${tags.length ? `<div class="card-tags">${tags.join("")}</div>` : ""}
-        ${trendHtml}
-        <div class="card-address"><i class="fas fa-map-pin"></i> ${s.address}</div>
+        ${updatedHtml}
+        <div class="card-address"><i class="fas fa-map-pin"></i> ${s.address || ""}</div>
         <div class="prices-table">
           <div class="price-row"><span class="price-fuel">Gasolina</span>${gasHtml}</div>
           <div class="price-row"><span class="price-fuel">Aditivada</span>${aditHtml}</div>
@@ -880,15 +1002,14 @@ function renderStations(stations) {
         </div>
         <div class="card-bottom">
           <div class="card-meta">
-            <span><i class="fas fa-clock"></i> ${s.openingHours}</span>
+            <span><i class="fas fa-clock"></i> ${s.openingHours || "--"}</span>
           </div>
           <div class="card-actions">
             <input type="checkbox" class="cmp-check" data-id="${s.id}" ${inCompare ? "checked" : ""}>
-            ${s.mapsLink ? `<a href="${s.mapsLink}" target="_blank" class="maps-btn"><i class="fas fa-route"></i> Rota</a>` : ""}
+            ${s.mapsLink ? `<a href="${s.mapsLink}" target="_blank" rel="noopener" class="maps-btn"><i class="fas fa-route"></i> Rota</a>` : ""}
           </div>
         </div>
-      </div>
-    `;
+      </div>`;
     })
     .join("");
 
@@ -896,18 +1017,17 @@ function renderStations(stations) {
     btn.addEventListener("click", () => toggleFavorite(btn.dataset.id));
   });
   stationsGrid.querySelectorAll(".cmp-check").forEach((cb) => {
-    cb.addEventListener("change", () =>
-      toggleCompare(cb.dataset.id, cb.checked),
-    );
+    cb.addEventListener("change", () => toggleCompare(cb.dataset.id, cb.checked));
   });
 }
 
 function renderRanking(stations) {
   if (!rankingStrip) return;
-  const valid = stations.filter((s) => s.gasolinaComum > 0);
-  const top = [...valid]
+  const top = [...stations]
+    .filter((s) => s.gasolinaComum > 0)
     .sort((a, b) => a.gasolinaComum - b.gasolinaComum)
     .slice(0, 5);
+
   rankingStrip.innerHTML = top
     .map(
       (s, i) => `
@@ -915,14 +1035,12 @@ function renderRanking(stations) {
       <span class="rank-pos">${i + 1}</span>
       <span class="rank-name">${s.name.split("–")[0]}</span>
       <span class="rank-price">R$ ${s.gasolinaComum.toFixed(2)}</span>
-    </div>
-  `,
+    </div>`,
     )
     .join("");
 }
 
 function renderPromos(stations) {
-  //Alterada recentemente
   if (!promosSection || !promosGrid) return;
   const promos = stations.filter((s) => s.hasPromotion);
 
@@ -932,55 +1050,43 @@ function renderPromos(stations) {
   }
 
   promosSection.style.display = "block";
-
-  // ESTA É A LINHA QUE TINHA SIDO CORTADA:
-  const fuelName = (f) =>
-    ({
-      gasolinaComum: "Gasolina",
-      gasolinaAditivada: "Aditivada",
-      etanol: "Etanol",
-      diesel: "Diesel",
-    })[f] || f;
-
   promosGrid.innerHTML = promos
     .map(
-      (s) => ` 
-    <div class="promo-card"> 
-      <div class="promo-station">${s.name}</div> 
-      <span class="promo-fuel-tag">${fuelName(s.promotionFuel)}</span> 
-      <div class="promo-big-price">R$ ${s.promoPrice.toFixed(2)}</div> 
+      (s) => `
+    <div class="promo-card">
+      <div class="promo-station">${s.name}</div>
+      <span class="promo-fuel-tag">${fuelLabel(s.promotionFuel)}</span>
+      <div class="promo-big-price">R$ ${(s.promoPrice || 0).toFixed(2)}</div>
       <div class="promo-validity"><i class="fas fa-calendar-alt"></i> Validade: ${s.promoValidity || "--"}</div>
-    </div> 
-  `,
+    </div>`,
     )
     .join("");
 }
 
-// ==================== FAVORITES ====================
+// ==================== 10. FAVORITES ====================
 function toggleFavorite(id) {
   const idx = favorites.indexOf(id);
   if (idx > -1) favorites.splice(idx, 1);
   else favorites.push(id);
   localStorage.setItem("gf_favorites", JSON.stringify(favorites));
-  applyFilters();
+  if (currentCity) applyFilters();
   renderFavorites();
 }
 
 function renderFavorites() {
   if (!favGrid || !noFavs) return;
-  const allPostos = [
-    ...getPostosPorCidade("Vera Cruz"),
-    ...getPostosPorCidade("Santa Cruz do Sul"),
-  ].map((p) => applyCustomPrices(p));
-  const favPostos = allPostos.filter((p) => favorites.includes(p.id));
+  const favPostos = getTodosPostos()
+    .map((p) => applyCustomPrices(p))
+    .filter((p) => favorites.includes(p.id));
+
   if (!favPostos.length) {
     favGrid.style.display = "none";
     noFavs.style.display = "block";
     return;
   }
+
   favGrid.style.display = "grid";
   noFavs.style.display = "none";
-
   favGrid.innerHTML = favPostos
     .map(
       (s) => `
@@ -990,20 +1096,23 @@ function renderFavorites() {
         <button class="fav-btn active" data-id="${s.id}"><i class="fas fa-heart"></i></button>
       </div>
       <div class="card-tags"><span class="tag tag-h24">${s.city}</span></div>
-      <div class="card-address"><i class="fas fa-map-pin"></i> ${s.address}</div>
+      <div class="card-address"><i class="fas fa-map-pin"></i> ${s.address || ""}</div>
       <div class="prices-table">
         <div class="price-row"><span class="price-fuel">Gasolina</span><span class="price-val">R$ ${s.gasolinaComum.toFixed(2)}</span></div>
         <div class="price-row"><span class="price-fuel">Aditivada</span><span class="price-val">R$ ${s.gasolinaAditivada.toFixed(2)}</span></div>
         <div class="price-row"><span class="price-fuel">Etanol</span><span class="price-val">R$ ${s.etanol.toFixed(2)}</span></div>
         <div class="price-row"><span class="price-fuel">Diesel</span><span class="price-val">R$ ${(s.dieselS10 || s.diesel).toFixed(2)}</span></div>
       </div>
-    </div>
-  `,
+    </div>`,
     )
     .join("");
+
+  favGrid.querySelectorAll(".fav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => toggleFavorite(btn.dataset.id));
+  });
 }
 
-// ==================== COMPARADOR ====================
+// ==================== 11. COMPARE ====================
 function toggleCompare(id, checked) {
   if (checked) {
     if (compareList.length >= 3) {
@@ -1020,12 +1129,11 @@ function toggleCompare(id, checked) {
 
 function updateCompareBar() {
   if (!compareBtn || !cmpCount) return;
-  if (compareList.length > 0) {
-    compareBtn.style.display = "flex";
-    cmpCount.textContent = compareList.length;
-  } else {
-    compareBtn.style.display = "none";
-  }
+  const count = compareList.length;
+  cmpCount.textContent = count;
+  compareBtn.disabled = count < 2;
+  compareBtn.style.display = count > 0 ? "flex" : "none";
+  if (clearCmpBtn) clearCmpBtn.style.display = count > 0 ? "inline-flex" : "none";
 }
 
 if (clearCmpBtn) {
@@ -1035,27 +1143,28 @@ if (clearCmpBtn) {
     applyFilters();
   });
 }
-if (compareBtn)
+
+if (compareBtn) {
   compareBtn.addEventListener("click", () => {
     if (compareList.length < 2) {
-      showAlert("Selecione 2 postos para comparar.");
+      showAlert("Selecione ao menos 2 postos para comparar.");
       return;
     }
     renderCompareModal();
   });
+}
+
 if (closeCmpModal) {
   closeCmpModal.addEventListener("click", () => {
-    compareModal.style.display = "none";
+    if (compareModal) compareModal.style.display = "none";
   });
 }
 
 function renderCompareModal() {
   if (!compareModal || !compareContent) return;
-  const allPostos = [
-    ...getPostosPorCidade("Vera Cruz"),
-    ...getPostosPorCidade("Santa Cruz do Sul"),
-  ].map((p) => applyCustomPrices(p));
-  const list = allPostos.filter((p) => compareList.includes(p.id));
+  const list = getTodosPostos()
+    .map((p) => applyCustomPrices(p))
+    .filter((p) => compareList.includes(p.id));
 
   compareContent.innerHTML = list
     .map(
@@ -1067,48 +1176,46 @@ function renderCompareModal() {
       <div class="cmp-cell"><b>Aditivada:</b> R$ ${s.gasolinaAditivada.toFixed(2)}</div>
       <div class="cmp-cell"><b>Etanol:</b> R$ ${s.etanol.toFixed(2)}</div>
       <div class="cmp-cell"><b>Diesel:</b> R$ ${(s.dieselS10 || s.diesel).toFixed(2)}</div>
-    </div>
-  `,
+    </div>`,
     )
     .join("");
   compareModal.style.display = "flex";
 }
 
-// ==================== MANUAL REPORT FROM DRIVERS ====================
+// ==================== 12. REPORT / UPDATE PRICES (driver local) ====================
 if (updatePricesBtn) {
   updatePricesBtn.addEventListener("click", () => {
-    updateModal.style.display = "flex";
+    if (updateModal) updateModal.style.display = "flex";
   });
 }
+
 if (closeUpdateModal) {
   closeUpdateModal.addEventListener("click", () => {
-    updateModal.style.display = "none";
+    if (updateModal) updateModal.style.display = "none";
   });
 }
+
 if (updateStation) {
   updateStation.addEventListener("change", () => {
-    const p = [
-      ...getPostosPorCidade("Vera Cruz"),
-      ...getPostosPorCidade("Santa Cruz do Sul"),
-    ]
-      .map((p) => applyCustomPrices(p))
+    const p = getTodosPostos()
+      .map((x) => applyCustomPrices(x))
       .find((x) => x.id === updateStation.value);
-    if (p) {
-      $("upGas").value = p.gasolinaComum;
-      $("upAdit").value = p.gasolinaAditivada;
-      $("upEtanol").value = p.etanol;
-      $("upDiesel").value = p.dieselS10 || p.diesel;
-    }
+    if (!p) return;
+    if ($("upGas")) $("upGas").value = p.gasolinaComum;
+    if ($("upAdit")) $("upAdit").value = p.gasolinaAditivada;
+    if ($("upEtanol")) $("upEtanol").value = p.etanol;
+    if ($("upDiesel")) $("upDiesel").value = p.dieselS10 || p.diesel;
   });
 }
+
 if (saveUpdateBtn) {
   saveUpdateBtn.addEventListener("click", () => {
-    const id = updateStation.value;
+    const id = updateStation?.value;
     if (!id) return;
-    const g = parseFloat($("upGas").value);
-    const a = parseFloat($("upAdit").value);
-    const e = parseFloat($("upEtanol").value);
-    const d = parseFloat($("upDiesel").value);
+    const g = parseFloat($("upGas")?.value);
+    const a = parseFloat($("upAdit")?.value);
+    const e = parseFloat($("upEtanol")?.value);
+    const d = parseFloat($("upDiesel")?.value);
     if ([g, a, e, d].some(isNaN)) {
       showAlert("Preencha os campos validamente.");
       return;
@@ -1122,19 +1229,18 @@ if (saveUpdateBtn) {
       diesel: d,
     });
     localStorage.setItem("gf_custom_prices", JSON.stringify(customPrices));
-    $("updateSuccess").style.display = "flex";
+    if ($("updateSuccess")) $("updateSuccess").style.display = "flex";
     setTimeout(() => {
-      updateModal.style.display = "none";
-      $("updateSuccess").style.display = "none";
+      if (updateModal) updateModal.style.display = "none";
+      if ($("updateSuccess")) $("updateSuccess").style.display = "none";
       if (currentCity) loadCity(currentCity);
-    }, 1500);
+    }, 1200);
   });
 }
 
 function populateUpdateStation(cidade) {
   if (!updateStation) return;
-  const postos = getPostosPorCidade(cidade);
-  updateStation.innerHTML = postos
+  updateStation.innerHTML = getPostosPorCidade(cidade)
     .map((p) => `<option value="${p.id}">${p.name}</option>`)
     .join("");
   updateStation.dispatchEvent(new Event("change"));
@@ -1145,23 +1251,28 @@ if (reportCity) {
     populateReportStation(reportCity.value);
   });
 }
+
 function populateReportCity() {
   if (!reportCity) return;
-  reportCity.innerHTML = CIDADES_DISPONIVEIS.map(
-    (c) => `<option value="${c}">${c}</option>`,
-  ).join("");
+  const cities = CIDADES_DISPONIVEIS.length
+    ? CIDADES_DISPONIVEIS
+    : ["Vera Cruz", "Santa Cruz do Sul"];
+  reportCity.innerHTML = cities.map((c) => `<option value="${c}">${c}</option>`).join("");
   populateReportStation(reportCity.value);
 }
+
 function populateReportStation(cidade) {
   if (!reportStation) return;
   reportStation.innerHTML = getPostosPorCidade(cidade)
     .map((p) => `<option value="${p.id}">${p.name}</option>`)
     .join("");
 }
+
 if (reportIsPromo) {
   reportIsPromo.addEventListener("change", () => {
-    if (promoValidityField)
+    if (promoValidityField) {
       promoValidityField.style.display = reportIsPromo.checked ? "" : "none";
+    }
   });
 }
 
@@ -1173,10 +1284,12 @@ if (reportForm) {
     const price = parseFloat(reportPrice.value);
     const isPromo = reportIsPromo.checked;
     const validity = isPromo ? reportValidity.value : null;
+
     if (!id || !fuel || isNaN(price) || price <= 0) {
       showAlert("Preencha todos os campos corretamente.");
       return;
     }
+
     if (!customPrices[id]) customPrices[id] = {};
     customPrices[id][fuel] = price;
     if (isPromo) {
@@ -1188,11 +1301,8 @@ if (reportForm) {
       });
     }
     localStorage.setItem("gf_custom_prices", JSON.stringify(customPrices));
-    const originalP = [
-      ...getPostosPorCidade("Vera Cruz"),
-      ...getPostosPorCidade("Santa Cruz do Sul"),
-    ].find((x) => x.id === id);
 
+    const originalP = getTodosPostos().find((x) => x.id === id);
     notifications.unshift({
       id: "notif-" + Date.now(),
       stationId: id,
@@ -1203,18 +1313,28 @@ if (reportForm) {
       read: false,
       changes: {
         direction: "down",
-        details: `Preço de ${fuel} reportado: R$ ${price.toFixed(2)}`,
+        details: `Preço de ${fuelLabel(fuel)} reportado: R$ ${price.toFixed(2)}`,
       },
     });
     localStorage.setItem("gf_notifications", JSON.stringify(notifications));
+
+    const success = $("reportSuccess");
+    if (success) {
+      success.style.display = "flex";
+      setTimeout(() => {
+        success.style.display = "none";
+      }, 2500);
+    }
+
     showAlert("Obrigado! Preço reportado.", "success");
     reportForm.reset();
     if (promoValidityField) promoValidityField.style.display = "none";
     updateNotifBadge();
+    if (currentCity) loadCity(currentCity);
   });
 }
 
-// ==================== CALCULADORA ====================
+// ==================== 13. CALCULATOR ====================
 if (calcBtn) {
   calcBtn.addEventListener("click", () => {
     const p = parseFloat(calcPrice.value);
@@ -1223,11 +1343,12 @@ if (calcBtn) {
       showAlert("Valores inválidos.");
       return;
     }
+    calcResult.style.display = "block";
     calcResult.innerHTML = `Total estimado: <b style="color:var(--accent-dark)">R$ ${(p * l).toFixed(2)}</b>`;
   });
 }
 
-// ==================== NOTIFICAÇÕES ====================
+// ==================== 14. NOTIFICATIONS ====================
 function updateNotifBadge() {
   const badge = $("notifBadge");
   if (!badge) return;
@@ -1238,55 +1359,64 @@ function updateNotifBadge() {
 
 function renderNotifications() {
   if (!notificationsList) return;
-  if (notifications.length === 0) {
+
+  if (!notifications.length) {
     notificationsList.innerHTML = "";
     if (noNotifications) noNotifications.style.display = "block";
     return;
   }
+
   if (noNotifications) noNotifications.style.display = "none";
   notificationsList.innerHTML = notifications
     .map(
       (n) => `
     <div class="notif-item ${n.read ? "" : "unread"}" data-id="${n.id}">
-      <div class="notif-icon ${n.type === "promo" ? "promo" : "price-down"}"><i class="fas ${n.type === "promo" ? "fa-tag" : "fa-gas-pump"}"></i></div>
+      <div class="notif-icon ${n.type === "promo" ? "promo" : "price-down"}">
+        <i class="fas ${n.type === "promo" ? "fa-tag" : "fa-gas-pump"}"></i>
+      </div>
       <div class="notif-content">
         <div class="notif-title">${n.stationName}</div>
         <div class="notif-desc">${n.changes ? n.changes.details : "Preços atualizados."}</div>
+        <div class="notif-time">${formatarTempo(n.timestamp)}</div>
       </div>
-    </div>
-  `,
+    </div>`,
     )
     .join("");
+
+  notifications.forEach((n) => {
+    n.read = true;
+  });
+  localStorage.setItem("gf_notifications", JSON.stringify(notifications));
+  updateNotifBadge();
 }
+
 if (clearNotificationsBtn) {
   clearNotificationsBtn.addEventListener("click", () => {
-    notifications.forEach((n) => (n.read = true));
+    notifications = [];
     localStorage.setItem("gf_notifications", JSON.stringify(notifications));
     renderNotifications();
     updateNotifBadge();
   });
 }
 
-// ==================== PAINEL DO POSTO PARCEIRO SEGURO ====================
+// ==================== 15. STATION OWNER ====================
+function togglePromoFields(show) {
+  const el = $("mgPromoDetails");
+  if (el) el.style.display = show ? "block" : "none";
+}
+
 function initManageView() {
   if (!manageStationSection || !claimStationSection) return;
 
-  // Verifica se o usuário logado tem algum posto cujo dono_id corresponde ao seu UID exclusivo
-  const todosOsPostos = [
-    ...getPostosPorCidade("Vera Cruz"),
-    ...getPostosPorCidade("Santa Cruz do Sul"),
-  ];
-  const postoDoUsuario = todosOsPostos.find(
-    (p) => p.dono_id === currentUser.uid,
+  const postoDoUsuario = getTodosPostos().find(
+    (p) => p.dono_id === currentUser?.uid,
   );
-
   if (postoDoUsuario) {
     managedStationId = postoDoUsuario.id;
     localStorage.setItem("gf_managed_station", managedStationId);
   }
 
   if (managedStationId) {
-    // 1. USUÁRIO JÁ TEM POSTO VINCULADO
     claimStationSection.style.display = "none";
     manageStationSection.style.display = "block";
     loadManagedStationData();
@@ -1297,10 +1427,9 @@ function initManageView() {
       divEdicao.style.cssText =
         "margin-top: 25px; border-top: 1px dashed #ccc; padding-top: 15px; text-align: center;";
       divEdicao.innerHTML = `
-        <button id="btnCriarPostoEdicao" style="width: 100%; padding: 0.8rem; background: transparent; border: 2px dashed #ff9800; color: #ff9800; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        <button id="btnCriarPostoEdicao" type="button" style="width:100%;padding:0.8rem;background:transparent;border:2px dashed #ff9800;color:#ff9800;border-radius:8px;cursor:pointer;font-weight:bold;">
           <i class="fas fa-plus"></i> Cadastrar Outro Posto Novo
-        </button>
-      `;
+        </button>`;
       manageStationSection.appendChild(divEdicao);
       $("btnCriarPostoEdicao").addEventListener("click", (e) => {
         e.preventDefault();
@@ -1308,7 +1437,6 @@ function initManageView() {
       });
     }
   } else {
-    // 2. REIVINDICAR OU CRIAR PRIMEIOR POSTO
     manageStationSection.style.display = "none";
     claimStationSection.style.display = "block";
     populateClaimCity();
@@ -1318,11 +1446,10 @@ function initManageView() {
       criarBtnDiv.id = "btnCriarPostoHtml";
       criarBtnDiv.style.marginTop = "20px";
       criarBtnDiv.innerHTML = `
-        <p style="font-size: 0.9rem; text-align:center; color: var(--text-muted); margin-bottom: 8px;">Não encontrou seu posto na lista?</p>
-        <button id="btnCriarPosto" style="width: 100%; padding: 0.8rem; background: transparent; border: 2px dashed var(--accent, #1967d2); color: var(--accent, #1967d2); border-radius: 8px; cursor: pointer; font-weight: bold;">
+        <p style="font-size:0.9rem;text-align:center;color:var(--text-muted);margin-bottom:8px;">Não encontrou seu posto na lista?</p>
+        <button id="btnCriarPosto" type="button" style="width:100%;padding:0.8rem;background:transparent;border:2px dashed var(--accent,#1967d2);color:var(--accent,#1967d2);border-radius:8px;cursor:pointer;font-weight:bold;">
           <i class="fas fa-plus"></i> Cadastrar Novo Posto
-        </button>
-      `;
+        </button>`;
       claimStationSection.appendChild(criarBtnDiv);
       $("btnCriarPosto").addEventListener("click", (e) => {
         e.preventDefault();
@@ -1337,24 +1464,20 @@ function populateClaimCity() {
   claimCity.innerHTML = `
     <option value="">Selecione a cidade...</option>
     <option value="Vera Cruz">Vera Cruz</option>
-    <option value="Santa Cruz do Sul">Santa Cruz do Sul</option>
-  `;
-  if (claimStationSelect)
-    claimStationSelect.innerHTML =
-      '<option value="">Selecione o posto...</option>';
+    <option value="Santa Cruz do Sul">Santa Cruz do Sul</option>`;
+  if (claimStationSelect) {
+    claimStationSelect.innerHTML = '<option value="">Selecione o posto...</option>';
+  }
 }
 
 if (claimCity) {
   claimCity.addEventListener("change", () => {
     const city = claimCity.value;
     if (!city || !claimStationSelect) return;
-    // Só mostra na lista para vincular os postos que ainda NÃO possuem dono cadastrado
     const postosSemDono = getPostosPorCidade(city).filter((p) => !p.dono_id);
     claimStationSelect.innerHTML =
       '<option value="">Selecione o posto...</option>' +
-      postosSemDono
-        .map((p) => `<option value="${p.id}">${p.name}</option>`)
-        .join("");
+      postosSemDono.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
   });
 }
 
@@ -1365,7 +1488,6 @@ if (claimStationBtn) {
       showAlert("Selecione um posto para gerenciar.");
       return;
     }
-
     const vinculado = await vincularPostoAoDono(id);
     if (vinculado) {
       managedStationId = id;
@@ -1379,8 +1501,7 @@ if (claimStationBtn) {
 
 if (changeStationBtn) {
   changeStationBtn.addEventListener("click", async () => {
-    // Desvincula o dono no banco ao deslogar do posto
-    if (managedStationId && currentUser.email !== "admin@gasfinder.com") {
+    if (managedStationId && !isAdminUser()) {
       await clienteSupabase
         .from("postos")
         .update({ dono_id: null })
@@ -1396,46 +1517,37 @@ if (changeStationBtn) {
 }
 
 function abrirModalCriarPosto() {
+  if ($("modalNovoPosto")) $("modalNovoPosto").remove();
+
   const modalHtml = `
-        <div id="modalNovoPosto" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 99999; display: flex; justify-content: center; align-items: center;">
-            <div style="background: var(--bg, #fff); padding: 2rem; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); font-family: sans-serif; max-height: 90vh; overflow-y: auto;">
-                <h3 style="margin-top:0; margin-bottom: 1.5rem; color: var(--text);">Cadastrar Novo Posto</h3>
-                
-                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: bold;">Cidade do Posto</label>
-                <select id="npCidade" style="width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; background: var(--bg, #fff); color: var(--text);">
-                    <option value="">Selecione a cidade...</option>
-                    <option value="Vera Cruz">Vera Cruz</option>
-                    <option value="Santa Cruz do Sul">Santa Cruz do Sul</option>
-                </select>
-
-                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: bold;">Nome do Posto</label>
-                <input type="text" id="npNome" placeholder="Ex: Posto BR Centro" style="width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; background: transparent; color: var(--text);">
-                
-                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: bold;">Bandeira</label>
-                <input type="text" id="npBandeira" placeholder="Ex: Ipiranga, Shell, Branca" style="width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; background: transparent; color: var(--text);">
-                
-                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: bold;">Endereço Completo</label>
-                <input type="text" id="npEndereco" placeholder="Rua principal, 123" style="width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 6px; background: transparent; color: var(--text);">
-
-                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: bold;">Link do Google Maps</label>
-                <input type="text" id="npMaps" placeholder="Cole o link do Maps aqui" style="width: 100%; padding: 0.8rem; margin-bottom: 1.5rem; border: 1px solid #ccc; border-radius: 6px; background: transparent; color: var(--text);">
-                
-                <div style="display: flex; gap: 10px;">
-                    <button id="npCancelar" style="flex: 1; padding: 0.8rem; background: #e0e0e0; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Cancelar</button>
-                    <button id="npSalvar" style="flex: 1; padding: 0.8rem; background: var(--accent, #1967d2); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Criar Posto</button>
-                </div>
-            </div>
+    <div id="modalNovoPosto" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:99999;display:flex;justify-content:center;align-items:center;">
+      <div style="background:var(--bg,#fff);padding:2rem;border-radius:12px;width:90%;max-width:400px;box-shadow:0 10px 25px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto;">
+        <h3 style="margin-top:0;margin-bottom:1.5rem;">Cadastrar Novo Posto</h3>
+        <label style="display:block;margin-bottom:0.5rem;font-size:0.9rem;font-weight:bold;">Cidade do Posto</label>
+        <select id="npCidade" style="width:100%;padding:0.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px;background:var(--bg,#fff);color:var(--text);">
+          <option value="">Selecione a cidade...</option>
+          <option value="Vera Cruz">Vera Cruz</option>
+          <option value="Santa Cruz do Sul">Santa Cruz do Sul</option>
+        </select>
+        <label style="display:block;margin-bottom:0.5rem;font-size:0.9rem;font-weight:bold;">Nome do Posto</label>
+        <input type="text" id="npNome" placeholder="Ex: Posto BR Centro" style="width:100%;padding:0.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px;background:transparent;color:var(--text);">
+        <label style="display:block;margin-bottom:0.5rem;font-size:0.9rem;font-weight:bold;">Bandeira</label>
+        <input type="text" id="npBandeira" placeholder="Ex: Ipiranga, Shell, Branca" style="width:100%;padding:0.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px;background:transparent;color:var(--text);">
+        <label style="display:block;margin-bottom:0.5rem;font-size:0.9rem;font-weight:bold;">Endereço Completo</label>
+        <input type="text" id="npEndereco" placeholder="Rua principal, 123" style="width:100%;padding:0.8rem;margin-bottom:1rem;border:1px solid #ccc;border-radius:6px;background:transparent;color:var(--text);">
+        <label style="display:block;margin-bottom:0.5rem;font-size:0.9rem;font-weight:bold;">Link do Google Maps</label>
+        <input type="text" id="npMaps" placeholder="Cole o link do Maps aqui" style="width:100%;padding:0.8rem;margin-bottom:1.5rem;border:1px solid #ccc;border-radius:6px;background:transparent;color:var(--text);">
+        <div style="display:flex;gap:10px;">
+          <button id="npCancelar" type="button" style="flex:1;padding:0.8rem;background:#e0e0e0;color:#333;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">Cancelar</button>
+          <button id="npSalvar" type="button" style="flex:1;padding:0.8rem;background:var(--accent,#1967d2);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;">Criar Posto</button>
         </div>
-    `;
+      </div>
+    </div>`;
 
   document.body.insertAdjacentHTML("beforeend", modalHtml);
-  if ($("claimCity") && $("claimCity").value) {
-    $("npCidade").value = $("claimCity").value;
-  }
-  $("npCancelar").addEventListener("click", () => {
-    $("modalNovoPosto").remove();
-  });
+  if (claimCity?.value) $("npCidade").value = claimCity.value;
 
+  $("npCancelar").addEventListener("click", () => $("modalNovoPosto").remove());
   $("npSalvar").addEventListener("click", async () => {
     const cidadeSelecionada = $("npCidade").value;
     const nome = $("npNome").value.trim();
@@ -1453,17 +1565,16 @@ function abrirModalCriarPosto() {
 
     const novoId = await criarNovoPostoNoBanco({
       cidade: cidadeSelecionada,
-      nome: nome,
-      bandeira: bandeira,
-      endereco: endereco,
-      linkMaps: linkMaps,
+      nome,
+      bandeira,
+      endereco,
+      linkMaps,
     });
 
     if (novoId) {
       $("modalNovoPosto").remove();
       if ($("btnCriarPostoHtml")) $("btnCriarPostoHtml").remove();
       if ($("btnCriarPostoEdicaoHtml")) $("btnCriarPostoEdicaoHtml").remove();
-
       await buscarPostosDoBanco();
       managedStationId = novoId;
       localStorage.setItem("gf_managed_station", novoId);
@@ -1477,55 +1588,51 @@ function abrirModalCriarPosto() {
 }
 
 function loadManagedStationData() {
-  const p = [
-    ...getPostosPorCidade("Vera Cruz"),
-    ...getPostosPorCidade("Santa Cruz do Sul"),
-  ].find((x) => x.id === managedStationId);
+  const p = getTodosPostos().find((x) => x.id === managedStationId);
   if (!p) return;
   if (managedStationName) managedStationName.textContent = p.name;
-  $("mgGas").value = p.gasolinaComum || 0;
-  $("mgAdit").value = p.gasolinaAditivada || 0;
-  $("mgEtanol").value = p.etanol || 0;
-  $("mgDiesel").value = p.dieselS10 || p.diesel || 0;
-  $("mgIsPromo").checked = p.hasPromotion || false;
-  $("mgPromoFuel").value = p.promotionFuel || "gasolinaComum";
-  $("mgPromoPrice").value = p.promoPrice || 0;
-  $("mgPromoValidity").value =
-    p.promoValidity && p.promoValidity !== "--" ? p.promoValidity : "";
-
-  if ($("mgIsPromo").checked && $("promoFieldsContainer")) {
-    $("promoFieldsContainer").style.display = "block";
-  } else if ($("promoFieldsContainer")) {
-    $("promoFieldsContainer").style.display = "none";
+  if ($("mgGas")) $("mgGas").value = p.gasolinaComum || 0;
+  if ($("mgAdit")) $("mgAdit").value = p.gasolinaAditivada || 0;
+  if ($("mgEtanol")) $("mgEtanol").value = p.etanol || 0;
+  if ($("mgDiesel")) $("mgDiesel").value = p.dieselS10 || p.diesel || 0;
+  if ($("mgIsPromo")) $("mgIsPromo").checked = !!p.hasPromotion;
+  if ($("mgPromoFuel")) $("mgPromoFuel").value = p.promotionFuel || "gasolinaComum";
+  if ($("mgPromoPrice")) $("mgPromoPrice").value = p.promoPrice || 0;
+  if ($("mgPromoValidity")) {
+    $("mgPromoValidity").value =
+      p.promoValidity && p.promoValidity !== "--" ? p.promoValidity : "";
   }
+  togglePromoFields(!!$("mgIsPromo")?.checked);
 }
 
 if ($("mgIsPromo")) {
   $("mgIsPromo").addEventListener("change", () => {
-    if ($("promoFieldsContainer"))
-      $("promoFieldsContainer").style.display = $("mgIsPromo").checked
-        ? "block"
-        : "none";
+    togglePromoFields($("mgIsPromo").checked);
   });
 }
 
 if (saveManageBtn) {
   saveManageBtn.addEventListener("click", async () => {
+    if (!managedStationId) {
+      showAlert("Nenhum posto selecionado.");
+      return;
+    }
+
     const gas = parseFloat($("mgGas").value);
     const adit = parseFloat($("mgAdit").value);
     const etanol = parseFloat($("mgEtanol").value);
     const diesel = parseFloat($("mgDiesel").value);
 
-    if ([gas, adit, etanol, diesel].some((v) => isNaN(v) || v <= 0)) {
-      showAlert("Preencha os preços com valores maiores que zero.");
+    if ([gas, adit, etanol, diesel].some((v) => isNaN(v) || v < 0)) {
+      showAlert("Preencha os preços com valores válidos.");
       return;
     }
 
     const novosPrecos = {
       gasolinaComum: gas,
       gasolinaAditivada: adit,
-      etanol: etanol,
-      diesel: diesel,
+      etanol,
+      diesel,
       dieselS10: diesel,
       hasPromotion: $("mgIsPromo").checked,
       promotionFuel: $("mgPromoFuel").value,
@@ -1538,20 +1645,23 @@ if (saveManageBtn) {
     await buscarPostosDoBanco();
 
     const isPromo = $("mgIsPromo").checked;
+    const nomePosto = managedStationName?.textContent || "Posto";
     notifications.unshift({
       id: "notif-" + Date.now(),
       stationId: managedStationId,
-      stationName: $("managedStationName").textContent,
+      stationName: nomePosto,
       city: "",
       type: isPromo ? "promo" : "price",
       timestamp: new Date().toISOString(),
       read: false,
       changes: {
         direction: "down",
-        details: isPromo ? `Oferta Ativa!` : `Preços Atualizados pelo Dono`,
+        details: isPromo ? "Oferta ativa!" : "Preços atualizados pelo dono",
       },
     });
     localStorage.setItem("gf_notifications", JSON.stringify(notifications));
+    updateNotifBadge();
+    notificarMotoristasLocal(nomePosto, fuelLabel(novosPrecos.promotionFuel || "gasolinaComum"), gas);
 
     if (manageSuccess) {
       manageSuccess.style.display = "flex";
@@ -1563,181 +1673,161 @@ if (saveManageBtn) {
   });
 }
 
-// ==================== ALERT HELPER ====================
-function showAlert(msg, type = "error") {
-  const el = document.createElement("div");
-  el.style.cssText = `
-    position: fixed; top: 80px; right: 20px; z-index: 999999;
-    background: ${type === "success" ? "var(--accent)" : "var(--red)"};
-    color: #fff; padding: 0.85rem 1.25rem; border-radius: 10px;
-    font-size: 0.9rem; font-weight: 600; font-family: var(--font);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2); animation: slideUp 0.25s ease;
-  `;
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3500);
-}
+// ==================== 16. ADMIN ====================
+function carregarPostosAdmin(filtroTexto = "") {
+  const lista = $("adminStationList");
+  if (!lista) return;
 
-clienteSupabase.auth.onAuthStateChange(async (event, session) => {
-  // 1. Tratamento para quando o usuário fizer logout
-  if (event === "SIGNED_OUT" || !session) {
-    currentUser = null;
-
-    // Esconde as telas internas e volta para o login
-    if ($("painel-admin")) $("painel-admin").style.display = "none";
-    if ($("appScreen")) $("appScreen").classList.remove("active");
-    if ($("roleScreen")) $("roleScreen").classList.remove("active");
-    if ($("loginScreen")) $("loginScreen").classList.add("active");
-
-    return; // Encerra a execução aqui
+  let postos = getTodosPostos();
+  const q = (filtroTexto || "").trim().toLowerCase();
+  if (q) {
+    postos = postos.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.address || "").toLowerCase().includes(q) ||
+        (p.city || "").toLowerCase().includes(q),
+    );
   }
 
-  // 2. Tratamento para usuário logado (SIGNED_IN ou INITIAL_SESSION)
-  if (session && session.user) {
-    // 🛡️ SEGUNDA BARREIRA (Visual): Roteamento por e-mail
-    // Lembre-se: Proteja suas tabelas no Supabase com RLS!
-    if (session.user.email === "suporte@gasfinder.com") {
-      currentUser = {
-        email: session.user.email,
-        name: "Administrador Master",
-        role: "admin",
-        uid: session.user.id,
-      };
+  const total = getTodosPostos().length;
+  const promos = getTodosPostos().filter((p) => p.hasPromotion).length;
+  const semDono = getTodosPostos().filter((p) => !p.dono_id).length;
+  if ($("adminStatTotalPostos")) $("adminStatTotalPostos").textContent = total;
+  if ($("adminStatPromos")) $("adminStatPromos").textContent = promos;
+  if ($("adminStatSemDono")) $("adminStatSemDono").textContent = semDono;
 
-      if ($("painel-admin")) $("painel-admin").style.display = "block";
+  if (!postos.length) {
+    lista.innerHTML = "<li style='padding:1rem;'>Nenhum posto encontrado.</li>";
+    return;
+  }
 
-      // Troca de telas
-      if ($("loginScreen")) $("loginScreen").classList.remove("active");
-      if ($("appScreen")) $("appScreen").classList.add("active");
+  lista.innerHTML = postos
+    .map(
+      (posto) => `
+    <li class="admin-card-posto" data-id="${posto.id}" style="padding:1rem;margin-bottom:0.75rem;background:var(--bg,#fff);border-radius:8px;border:1px solid #e5e5e5;">
+      <h4 style="margin:0 0 0.35rem;">${posto.name || "Posto Sem Nome"} — ${posto.brand || "Sem Bandeira"}</h4>
+      <p style="margin:0 0 0.75rem;color:var(--text-muted,#666);font-size:0.9rem;">
+        ${posto.city || ""} | ${posto.address || ""} ${posto.dono_id ? "" : "· <b>Sem dono</b>"}
+      </p>
+      <div class="admin-acoes" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button type="button" onclick="editarPostoAdmin('${posto.id}')" class="btn-outline" style="padding:0.4rem 0.8rem;">
+          <i class="fas fa-edit"></i> Editar
+        </button>
+        <button type="button" class="btn-apagar" onclick="apagarPostoAdmin('${posto.id}')" style="padding:0.4rem 0.8rem;background:#dc3545;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+          <i class="fas fa-trash"></i> Apagar
+        </button>
+      </div>
+    </li>`,
+    )
+    .join("");
+}
 
-      // Inicializa a aplicação
-      if (typeof initApp === "function") initApp();
-      if (typeof inicializarAlternadorVisao === "function")
-        inicializarAlternadorVisao();
-    } else {
-      // Tratamento para usuários comuns
-      currentUser = {
-        email: session.user.email,
-        name: session.user.email.split("@")[0],
-        uid: session.user.id,
-        role: "user",
-      };
+$("adminSearchStationInput")?.addEventListener("input", (e) => {
+  carregarPostosAdmin(e.target.value);
+});
 
-      // Esconde o painel admin por garantia
-      if ($("painel-admin")) $("painel-admin").style.display = "none";
+$("adminAddStationBtn")?.addEventListener("click", async () => {
+  const nome = $("adminNewStationName")?.value.trim();
+  const endereco = $("adminNewStationAddress")?.value.trim();
+  const cidade = $("adminNewStationCity")?.value;
+  const bandeira = $("adminNewStationBrand")?.value.trim() || "Branca";
 
-      // Joga para a tela de seleção de perfil
-      if ($("loginScreen")) $("loginScreen").classList.remove("active");
-      if ($("roleScreen")) $("roleScreen").classList.add("active");
+  if (!nome || !endereco || !cidade) {
+    showAlert("Preencha Nome, Endereço e Cidade para continuar!", "error");
+    return;
+  }
+
+  const btn = $("adminAddStationBtn");
+  const original = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+
+  const novoId = await criarNovoPostoNoBanco({
+    cidade,
+    nome,
+    bandeira,
+    endereco,
+    linkMaps: "",
+  });
+
+  btn.innerHTML = original;
+
+  if (!novoId) return;
+
+  showAlert("Posto cadastrado com sucesso!", "success");
+  $("adminNewStationName").value = "";
+  $("adminNewStationAddress").value = "";
+  $("adminNewStationBrand").value = "";
+  await buscarPostosDoBanco();
+  carregarPostosAdmin();
+});
+
+// ==================== 17. PROFILE ====================
+async function carregarPerfil() {
+  if (!currentUser) return;
+  try {
+    const { data } = await clienteSupabase
+      .from("perfis")
+      .select("*")
+      .eq("id", currentUser.uid)
+      .maybeSingle();
+
+    if (!data) return;
+    if ($("profileName")) $("profileName").value = data.nome || "";
+    if ($("profileFuel")) $("profileFuel").value = data.combustivel_favorito || "";
+    if ($("profileVehicle")) $("profileVehicle").value = data.veiculo || "";
+    if ($("profilePhone")) $("profilePhone").value = data.telefone || "";
+    if ($("profilePlate")) $("profilePlate").value = data.placa || "";
+  } catch (err) {
+    console.log("Perfil ainda não criado ou erro ao carregar.");
+  }
+}
+
+$("headerProfileBtn")?.addEventListener("click", () => {
+  showView("profileView");
+});
+
+$("saveProfileBtn")?.addEventListener("click", async () => {
+  if (!currentUser) return;
+  const btn = $("saveProfileBtn");
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A guardar...';
+
+  try {
+    const perfilData = {
+      id: currentUser.uid,
+      nome: $("profileName")?.value || "",
+      combustivel_favorito: $("profileFuel")?.value || "",
+      veiculo: $("profileVehicle")?.value || "",
+      telefone: $("profilePhone")?.value || "",
+      placa: $("profilePlate")?.value || "",
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await clienteSupabase.from("perfis").upsert(perfilData);
+    if (error) throw error;
+
+    if (perfilData.nome) currentUser.name = perfilData.nome;
+
+    const msg = $("profileSuccessMsg");
+    if (msg) {
+      msg.style.display = "block";
+      setTimeout(() => {
+        msg.style.display = "none";
+      }, 3000);
     }
+    showAlert("Perfil atualizado!", "success");
+  } catch (error) {
+    console.error("Erro ao guardar perfil:", error);
+    showAlert("Erro ao guardar: " + error.message, "error");
+  } finally {
+    btn.innerHTML = '<i class="fas fa-save"></i> Salvar Perfil';
   }
 });
 
-// ==================== ALTERNADOR DE VISÃO ULTRA SEGURO (ADMIN / MOTORISTA) ====================
-document.addEventListener("DOMContentLoaded", () => {
-  const btnAlternar = document.getElementById("btn-alternar-visao");
-  const adminContainer = document.getElementById("admin-switch-container");
-
-  // Simula a verificação do admin (adapte para pegar do seu currentUser real quando integrar)
-  // Mostra a barra preta lá em cima se for admin
-  if (adminContainer && currentUser && currentUser.role === "admin") {
-    adminContainer.style.display = "flex";
-  }
-
-  if (btnAlternar) {
-    btnAlternar.addEventListener("click", () => {
-      const telaPesquisa = document.getElementById("searchView"); // Visão Motorista
-      const telaPosto = document.getElementById("manageView"); // Visão Gerente/Admin
-
-      // Oculte todas as views primeiro (mesma lógica que sua navegação deve usar)
-      document
-        .querySelectorAll("#appScreen .view")
-        .forEach((v) => v.classList.remove("active"));
-
-      if (btnAlternar.innerHTML.includes("Motorista")) {
-        // 1. Mudar para a visão do Motorista
-        if (telaPesquisa) telaPesquisa.classList.add("active");
-
-        // Modifica o botão para modo de retorno
-        btnAlternar.innerHTML =
-          '<i class="fas fa-toggle-off"></i> Voltar para Painel Admin';
-        btnAlternar.style.background = "#dc3545"; // Vermelho
-
-        showAlert("Visão de Motorista ativada.", "success");
-      } else {
-        // 2. Voltar para a visão de Admin / Posto
-        if (telaPosto) telaPosto.classList.add("active");
-
-        // Modifica o botão de volta para o padrão admin
-        btnAlternar.innerHTML =
-          '<i class="fas fa-toggle-on"></i> Mudar para Visão Motorista';
-        btnAlternar.style.background = "var(--blue, #007bff)"; // Azul
-
-        showAlert("Visão de Administrador ativada.", "success");
-      }
-    });
-  }
+$("profileLogoutBtn")?.addEventListener("click", async () => {
+  await logout();
 });
 
-// FORMATADOR DE TEMPO RELATIVO
-function formatarTempo(dataIso) {
-  if (!dataIso) return "Atualização recente";
-
-  const data = new Date(dataIso);
-  const agora = new Date();
-  const diffMs = agora - data;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHoras = Math.floor(diffMins / 60);
-  const diffDias = Math.floor(diffHoras / 24);
-
-  if (diffMins < 60)
-    return `Atualizado há ${diffMins === 0 ? 1 : diffMins} min`;
-  if (diffHoras < 24) return `Atualizado há ${diffHoras}h`;
-  if (diffDias === 1) return `Atualizado ontem`;
-  return `Atualizado há ${diffDias} dias`;
-}
-
-// INICIALIZADOR DO BOTÃO ALTERNADOR DE VISÃO (ADMIN <-> MOTORISTA)
-function inicializarAlternadorVisao() {
-  const btnAlternar = document.getElementById("btn-alternar-visao");
-
-  if (btnAlternar && !btnAlternar.dataset.listenerAtivo) {
-    btnAlternar.dataset.listenerAtivo = "true";
-
-    btnAlternar.addEventListener("click", () => {
-      const telaPesquisa = document.getElementById("searchView"); // Visão Motorista
-      const telaPosto = document.getElementById("manageView"); // Visão Gerente/Admin
-
-      document
-        .querySelectorAll("#appScreen .view")
-        .forEach((v) => v.classList.remove("active"));
-
-      if (btnAlternar.innerHTML.includes("Motorista")) {
-        if (telaPesquisa) telaPesquisa.classList.add("active");
-        btnAlternar.innerHTML =
-          '<i class="fas fa-toggle-off"></i> Voltar para Painel Admin';
-        btnAlternar.style.background = "#dc3545"; // Vermelho
-        showAlert("Visão de Motorista ativa.", "success");
-      } else {
-        if (telaPosto) telaPosto.classList.add("active");
-        btnAlternar.innerHTML =
-          '<i class="fas fa-toggle-on"></i> Mudar para Visão Motorista';
-        btnAlternar.style.background = "var(--blue, #007bff)"; // Azul
-        showAlert("Visão de Administrador ativa.", "success");
-      }
-    });
-  }
-}
-
-// ================================================================
-// PWA — REGISTRO DO SERVICE WORKER E NOTIFICAÇÕES PUSH
-// ================================================================
-
-// Chave pública VAPID — necessária para notificações push
-// Gere a sua em: https://vapidkeys.com/
-// Depois de gerar, substitua a string abaixo pela sua PUBLIC KEY
-const VAPID_PUBLIC_KEY = "SUA_CHAVE_PUBLICA_VAPID_AQUI";
-
+// ==================== 18. PWA ====================
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -1750,644 +1840,44 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function registrarPWA() {
-  if (!("serviceWorker" in navigator)) {
-    console.log("[GasFinder] Navegador não suporta Service Worker");
-    return;
-  }
+  if (!("serviceWorker" in navigator)) return;
 
   try {
-    // Registra o Service Worker
-    const registration = await navigator.serviceWorker.register("/sw.js");
-    console.log("[GasFinder] Service Worker registrado com sucesso!");
+    const registration = await navigator.serviceWorker.register("./sw.js");
+    if (!("Notification" in window) || !("PushManager" in window)) return;
 
-    // Solicita permissão para notificações
-    if ("Notification" in window && "PushManager" in window) {
-      const permission = await Notification.requestPermission();
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
 
-      if (permission === "granted") {
-        console.log("[GasFinder] Permissão de notificação concedida!");
-
-        // Inscreve o usuário para receber push
-        // NOTA: as notificações locais (sem servidor push) já funcionam
-        // Para push real via Supabase, você precisa da chave VAPID
-        if (VAPID_PUBLIC_KEY !== "SUA_CHAVE_PUBLICA_VAPID_AQUI") {
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-          });
-
-          // Aqui você salvaria a subscription no Supabase
-          // para poder mandar push quando o posto atualizar o preço
-          console.log(
-            "[GasFinder] Push subscription:",
-            JSON.stringify(subscription),
-          );
-
-          // Exemplo de como salvar no Supabase:
-          // await supabase.from('push_subscriptions').upsert({
-          //   user_id: currentUser.id,
-          //   subscription: JSON.stringify(subscription)
-          // });
-        }
-      } else {
-        console.log("[GasFinder] Permissão de notificação negada");
-      }
+    if (VAPID_PUBLIC_KEY !== "SUA_CHAVE_PUBLICA_VAPID_AQUI") {
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      console.log("[GasFinder] Push subscription:", JSON.stringify(subscription));
     }
   } catch (error) {
     console.error("[GasFinder] Erro ao registrar Service Worker:", error);
   }
 }
 
-// Função para enviar notificação local (sem precisar do servidor push)
-// Use essa enquanto não tiver a chave VAPID configurada
-// Chame essa função quando o posto parceiro salvar novos preços
-function notificarMotoristasLocal(
-  nomePostoOuCidade,
-  tipoCombustivel,
-  novoPreco,
-) {
-  if (
-    Notification.permission === "granted" &&
-    navigator.serviceWorker.controller
-  ) {
-    navigator.serviceWorker.ready.then((registration) => {
-      registration.showNotification("GasFinder RS — Preço atualizado! ⛽", {
-        body: `${nomePostoOuCidade} atualizou ${tipoCombustivel} para R$ ${novoPreco.toFixed(2)}`,
-        icon: "/Logo-Gas-Finder-2.0.png",
-        badge: "/Logo-Gas-Finder-2.0.png",
-        vibrate: [200, 100, 200],
-        tag: "price-update",
-      });
-    });
+function notificarMotoristasLocal(nomePostoOuCidade, tipoCombustivel, novoPreco) {
+  if (Notification.permission !== "granted" || !navigator.serviceWorker?.controller) {
+    return;
   }
+  navigator.serviceWorker.ready.then((registration) => {
+    registration.showNotification("GasFinder RS — Preço atualizado!", {
+      body: `${nomePostoOuCidade} atualizou ${tipoCombustivel} para R$ ${Number(novoPreco).toFixed(2)}`,
+      icon: "./Logo-Gas-Finder-2.0.png",
+      badge: "./Logo-Gas-Finder-2.0.png",
+      vibrate: [200, 100, 200],
+      tag: "price-update",
+    });
+  });
 }
 
-// Inicia o PWA quando a página carregar
 window.addEventListener("load", registrarPWA);
 
-// EXPORTA a função de notificação para usar em outros lugares do app.js
-// No seu código, onde o posto salva os preços (saveManageBtn),
-// adicione a chamada assim:
-//
-// notificarMotoristasLocal('Posto Ipiranga', 'Gasolina Comum', 5.89);
-//
-// ================================================================
-
-// ==================== LÓGICA DO PERFIL (PROFILE VIEW) ====================
-
-// 1. Função para carregar os dados do Supabase e preencher o formulário
-async function carregarPerfil() {
-  if (!currentUser) return;
-
-  try {
-    const { data, error } = await clienteSupabase
-      .from("perfis")
-      .select("*")
-      .eq("id", currentUser.uid)
-      .single(); // Puxa apenas o perfil deste utilizador
-
-    if (data) {
-      // Se já tem perfil salvo, preenche os campos
-      document.getElementById("profileName").value = data.nome || "";
-      document.getElementById("profileFuel").value =
-        data.combustivel_favorito || "";
-      document.getElementById("profileVehicle").value = data.veiculo || "";
-      document.getElementById("profilePhone").value = data.telefone || "";
-      document.getElementById("profilePlate").value = data.placa || "";
-    }
-  } catch (err) {
-    console.log("Perfil ainda não criado ou erro ao carregar.");
-  }
-}
-
-// 2. Abrir o ecrã de Perfil e carregar os dados
-const headerProfileBtn = document.getElementById("headerProfileBtn");
-const profileView = document.getElementById("profileView");
-
-if (headerProfileBtn) {
-  headerProfileBtn.addEventListener("click", () => {
-    // Esconde as outras telas
-    document
-      .querySelectorAll("#appScreen .view")
-      .forEach((v) => v.classList.remove("active"));
-    // Mostra o Perfil
-    profileView.classList.add("active");
-    // Carrega as informações!
-    carregarPerfil();
-  });
-}
-
-// 3. Guardar os dados do Perfil no Supabase
-const saveProfileBtn = document.getElementById("saveProfileBtn");
-if (saveProfileBtn) {
-  saveProfileBtn.addEventListener("click", async () => {
-    if (!currentUser) return;
-
-    // Efeito visual de "A carregar" no botão
-    saveProfileBtn.innerHTML =
-      '<i class="fas fa-spinner fa-spin"></i> A guardar...';
-
-    try {
-      // ======================================================
-      // 1. ATUALIZAÇÃO DE CREDENCIAIS (E-MAIL E SENHA)
-      // ======================================================
-      // Verifica se os campos de email e senha existem na tela e pega os valores
-      const emailInput = document.getElementById("profileEmail");
-      const senhaInput = document.getElementById("profilePassword");
-
-      let updateAuth = {};
-
-      // Se o usuário digitou um e-mail novo e diferente do atual
-      if (
-        emailInput &&
-        emailInput.value.trim() !== "" &&
-        emailInput.value.trim() !== currentUser.email
-      ) {
-        updateAuth.email = emailInput.value.trim();
-      }
-
-      // Se o usuário digitou uma nova senha
-      if (senhaInput && senhaInput.value !== "") {
-        if (senhaInput.value.length < 6) {
-          alert("A nova senha deve ter pelo menos 6 caracteres.");
-          saveProfileBtn.innerHTML =
-            '<i class="fas fa-save"></i> Salvar Perfil';
-          return; // Para a execução aqui
-        }
-        updateAuth.password = senhaInput.value;
-      }
-
-      // Se tiver e-mail ou senha para atualizar, chama a API de segurança do Supabase
-      if (Object.keys(updateAuth).length > 0) {
-        const { error: authError } =
-          await clienteSupabase.auth.updateUser(updateAuth);
-        if (authError) throw authError;
-
-        // Aviso sobre a confirmação de e-mail
-        if (updateAuth.email) {
-          alert(
-            "Foi enviado um link de confirmação para o seu novo e-mail. A alteração só será concluída quando você clicar nele!",
-          );
-        }
-      }
-
-      // ======================================================
-      // 2. ATUALIZAÇÃO DOS DADOS GERAIS NA TABELA 'perfis'
-      // ======================================================
-      const perfilData = {
-        // Usa uid ou id (dependendo de como sua variável currentUser está montada)
-        id: currentUser.uid || currentUser.id,
-        nome: document.getElementById("profileName")
-          ? document.getElementById("profileName").value
-          : "",
-        combustivel_favorito: document.getElementById("profileFuel")
-          ? document.getElementById("profileFuel").value
-          : "",
-        veiculo: document.getElementById("profileVehicle")
-          ? document.getElementById("profileVehicle").value
-          : "",
-        telefone: document.getElementById("profilePhone")
-          ? document.getElementById("profilePhone").value
-          : "",
-        placa: document.getElementById("profilePlate")
-          ? document.getElementById("profilePlate").value
-          : "",
-        updated_at: new Date().toISOString(),
-      };
-
-      // Envia para o Supabase usando 'upsert'
-      const { error: dbError } = await clienteSupabase
-        .from("perfis")
-        .upsert(perfilData);
-      if (dbError) throw dbError;
-
-      // Mostra a mensagem de sucesso verde do seu código
-      const msg = document.getElementById("profileSuccessMsg");
-      if (msg) {
-        msg.style.display = "block";
-        setTimeout(() => {
-          msg.style.display = "none";
-        }, 3000); // Esconde após 3 segundos
-      }
-    } catch (error) {
-      console.error("Erro ao guardar perfil:", error);
-      alert("Ocorreu um erro ao guardar: " + error.message);
-    } finally {
-      // Restaura o botão para o normal, independentemente de ter dado certo ou erro
-      saveProfileBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Perfil';
-    }
-  });
-}
-
-// =======================================================
-// LÓGICA DO PAINEL DE ADMINISTRAÇÃO E PERFIL (ADICIONADO)
-// =======================================================
-
-async function carregarDadosPerfil(userId) {
-  try {
-    const { data, error } = await clienteSupabase
-      .from("perfis")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-    if (error) throw error;
-    if (data) {
-      if (document.getElementById("profileName"))
-        document.getElementById("profileName").value = data.nome || "";
-      if (document.getElementById("profilePhone"))
-        document.getElementById("profilePhone").value = data.telefone || "";
-      if (document.getElementById("profilePlate"))
-        document.getElementById("profilePlate").value = data.placa || "";
-      if (document.getElementById("profileFuel"))
-        document.getElementById("profileFuel").value =
-          data.combustivel_favorito || "";
-      if (document.getElementById("profileVehicle"))
-        document.getElementById("profileVehicle").value = data.veiculo || "";
-    }
-  } catch (error) {
-    console.error("Erro ao carregar dados do perfil:", error);
-  }
-}
-
-const ADMIN_EMAIL = "suporte@gasfinder.com";
-
-function verificarPermissaoAdmin(usuarioLogado) {
-  const adminPanel = document.getElementById("adminPanelSection");
-  if (!adminPanel) return;
-  if (usuarioLogado && usuarioLogado.email === ADMIN_EMAIL) {
-    adminPanel.style.display = "block";
-    carregarPostosAdmin();
-  } else {
-    adminPanel.style.display = "none";
-  }
-}
-
-document
-  .getElementById("adminLogoutBtn")
-  ?.addEventListener("click", async () => {
-    await clienteSupabase.auth.signOut();
-    window.location.reload();
-  });
-
-// =======================================================
-// CADASTRO DE NOVO POSTO PELO ADMIN (INTEGRADO AO SUPABASE)
-// =======================================================
-
-document
-  .getElementById("adminAddStationBtn")
-  ?.addEventListener("click", async () => {
-    const nome = document.getElementById("adminNewStationName")?.value.trim();
-    const endereco = document
-      .getElementById("adminNewStationAddress")
-      ?.value.trim();
-    const cidade = document.getElementById("adminNewStationCity")?.value;
-    const bandeira =
-      document.getElementById("adminNewStationBrand")?.value.trim() || "Branca";
-
-    if (!nome || !endereco || !cidade) {
-      if (typeof showAlert === "function")
-        showAlert("Preencha Nome, Endereço e Cidade para continuar!", "error");
-      return;
-    }
-
-    const btn = document.getElementById("adminAddStationBtn");
-    const btnTextoOriginal = btn.innerHTML;
-    btn.innerHTML =
-      '<i class="fas fa-spinner fa-spin"></i> Salvando no Banco...';
-
-    // Gera um código único exigido pela estrutura das suas tabelas
-    const codigoUnico = cidade.substring(0, 3).toLowerCase() + "-" + Date.now();
-
-    const novoPostoData = {
-      codigo_posto: codigoUnico,
-      nome: nome,
-      endereco: endereco,
-      cidade: cidade,
-      bandeira: bandeira,
-      gasolina_comum: 0,
-      gasolina_aditivada: 0,
-      etanol: 0,
-      diesel: 0,
-      diesel_s10: 0,
-      has_promotion: false,
-      opening_hours: "Horário comercial",
-    };
-
-    // Envio direto para a tabela 'postos' no Supabase
-    const { error } = await clienteSupabase
-      .from("postos")
-      .insert([novoPostoData]);
-
-    btn.innerHTML = btnTextoOriginal;
-
-    if (error) {
-      if (typeof showAlert === "function")
-        showAlert("Erro ao salvar no Supabase: " + error.message, "error");
-    } else {
-      if (typeof showAlert === "function")
-        showAlert("Posto cadastrado com sucesso!", "success");
-
-      // Limpa os campos do formulário
-      document.getElementById("adminNewStationName").value = "";
-      document.getElementById("adminNewStationAddress").value = "";
-      document.getElementById("adminNewStationBrand").value = "";
-
-      // 1. Atualiza os dados globais em background
-      await buscarPostosDoBanco();
-
-      // 2. Atualiza a lista do Painel Admin
-      carregarPostosAdmin();
-
-      // 3. Se a visão do motorista estiver aberta na mesma cidade, atualiza os cards
-      if (currentCity === cidade && typeof applyFilters === "function") {
-        applyFilters();
-        updateHeroStats();
-      }
-    }
-  });
-
-window.apagarPostoAdmin = async function (id) {
-  if (
-    !confirm(
-      "Tem certeza que deseja apagar este posto? Esta ação é irreversível.",
-    )
-  )
-    return;
-
-  try {
-    const { error } = await clienteSupabase
-      .from("postos")
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
-
-    if (typeof showAlert === "function") {
-      showAlert("Posto apagado com sucesso!", "success");
-    } else {
-      alert("Posto apagado com sucesso!");
-    }
-
-    // Atualiza a lista do admin e os dados do app
-    carregarPostosAdmin();
-    if (typeof buscarPostosDoBanco === "function") await buscarPostosDoBanco();
-    if (typeof applyFilters === "function") applyFilters();
-  } catch (error) {
-    console.error("Erro ao apagar posto:", error);
-    if (typeof showAlert === "function") {
-      showAlert("Erro ao apagar posto: " + error.message, "error");
-    } else {
-      alert("Erro ao apagar posto: " + error.message);
-    }
-  }
-};
-
-// =======================================================
-// LÓGICA DO PAINEL DE ADMINISTRAÇÃO MASTER (Aprimorada)
-// =======================================================
-
-// ==================== FUNÇÕES ADMINISTRATIVAS E BANCO DE DADOS ====================
-
-// 1. ATUALIZA PREÇOS NO BANCO (ADMIN OU DONO)
-async function atualizarPrecosNoBanco(codigoPosto, novosDados) {
-  if (!currentUser) return false;
-
-  // Se for Admin, ignora a validação de dono do posto
-  if (currentUser.role === "admin") {
-    const { error } = await clienteSupabase
-      .from("postos")
-      .update({
-        gasolina_comum: parseFloat(novosDados.gasolinaComum) || 0,
-        gasolina_aditivada: parseFloat(novosDados.gasolinaAditivada) || 0,
-        etanol: parseFloat(novosDados.etanol) || 0,
-        diesel: parseFloat(novosDados.diesel) || 0,
-        diesel_s10: parseFloat(novosDados.dieselS10) || 0,
-        has_promotion: novosDados.hasPromotion || false,
-        promotion_fuel: novosDados.promotionFuel || "",
-        promo_price: parseFloat(novosDados.promoPrice) || 0,
-        promo_validity: novosDados.promoValidity || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("codigo_posto", codigoPosto);
-
-    if (error) {
-      console.error("Erro ao atualizar como Admin:", error);
-      return false;
-    }
-    return true;
-  }
-
-  // Se for Dono, valida se o ID confere
-  const { data: postoAtual, error: fetchError } = await clienteSupabase
-    .from("postos")
-    .select("dono_id")
-    .eq("codigo_posto", codigoPosto)
-    .single();
-
-  if (fetchError || !postoAtual || postoAtual.dono_id !== currentUser.uid) {
-    if (typeof showAlert === "function") {
-      showAlert(
-        "Erro de Segurança: Você não é o dono cadastrado deste posto!",
-        "error",
-      );
-    }
-    return false;
-  }
-
-  const { error } = await clienteSupabase
-    .from("postos")
-    .update({
-      gasolina_comum: parseFloat(novosDados.gasolinaComum) || 0,
-      gasolina_aditivada: parseFloat(novosDados.gasolinaAditivada) || 0,
-      etanol: parseFloat(novosDados.etanol) || 0,
-      diesel: parseFloat(novosDados.diesel) || 0,
-      diesel_s10: parseFloat(novosDados.dieselS10) || 0,
-      has_promotion: novosDados.hasPromotion || false,
-      promotion_fuel: novosDados.promotionFuel || "",
-      promo_price: parseFloat(novosDados.promoPrice) || 0,
-      promo_validity: novosDados.promoValidity || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("codigo_posto", codigoPosto);
-
-  if (error) {
-    console.error("Erro ao salvar no Supabase:", error);
-    if (typeof showAlert === "function")
-      showAlert("Erro ao salvar os dados no servidor!", "error");
-    return false;
-  }
-  return true;
-}
-
-// 2. VINCULA POSTO AO USUÁRIO LOGADO
-async function vincularPostoAoDono(codigoPosto) {
-  if (!currentUser) return false;
-  if (currentUser.role === "admin") return true;
-
-  const { error } = await clienteSupabase
-    .from("postos")
-    .update({ dono_id: currentUser.uid })
-    .eq("codigo_posto", codigoPosto)
-    .is("dono_id", null);
-
-  if (error) {
-    console.error("Erro ao vincular posto:", error);
-    return false;
-  }
-  return true;
-}
-
-// 3. CARREGA DADOS DO PERFIL
-async function carregarDadosPerfil() {
-  const perfilContainer = document.getElementById("perfil-admin-container");
-  if (!perfilContainer || !currentUser) return;
-
-  perfilContainer.innerHTML = `<p><i class="fas fa-spinner fa-spin"></i> Carregando dados do perfil...</p>`;
-
-  try {
-    const { data, error } = await clienteSupabase
-      .from("usuarios")
-      .select("*")
-      .eq("uid", currentUser.uid)
-      .single();
-
-    if (error && error.code !== "PGRST116") throw error;
-
-    const nomeUsuario = data?.nome || currentUser.name || "Usuário";
-    const roleUsuario = data?.role || currentUser.role || "Geral";
-
-    perfilContainer.innerHTML = `
-            <h3>Bem-vindo(a), ${nomeUsuario}</h3>
-            <p><strong>Email:</strong> ${currentUser.email}</p>
-            <p><strong>Nível de Acesso:</strong> ${roleUsuario}</p>
-        `;
-  } catch (err) {
-    console.error("Erro ao carregar perfil:", err);
-    perfilContainer.innerHTML = `
-            <h3>Bem-vindo(a), ${currentUser.name || "Administrador"}</h3>
-            <p><strong>Email:</strong> ${currentUser.email}</p>
-            <p><strong>Nível de Acesso:</strong> ${currentUser.role}</p>
-        `;
-  }
-}
-
-// 4. LISTA OS POSTOS NO PAINEL ADMIN
-async function carregarPostosAdmin(cidadeFiltro = null) {
-  const listaContainer = document.getElementById("admin-lista-postos");
-  if (!listaContainer) return;
-
-  listaContainer.innerHTML = `<div class="loading"><i class="fas fa-spinner fa-spin"></i> Carregando postos...</div>`;
-
-  let postosFiltrados = [];
-  if (cidadeFiltro && typeof getPostosPorCidade === "function") {
-    postosFiltrados = getPostosPorCidade(cidadeFiltro);
-  } else if (typeof POSTOS_DATA !== "undefined") {
-    Object.values(POSTOS_DATA).forEach((lista) => {
-      postosFiltrados = postosFiltrados.concat(lista);
-    });
-  }
-
-  if (postosFiltrados.length === 0) {
-    listaContainer.innerHTML = `<p>Nenhum posto encontrado.</p>`;
-    return;
-  }
-
-  let html = "";
-  postosFiltrados.forEach((posto) => {
-    html += `
-            <div class="admin-card-posto" data-id="${posto.id}">
-                <h4>${posto.name || "Posto Sem Nome"} - ${posto.brand || "Sem Bandeira"}</h4>
-                <p>${posto.city || ""} | ${posto.address || ""}</p>
-                <div class="admin-acoes">
-                    <button onclick="editarPostoAdmin('${posto.id}')"><i class="fas fa-edit"></i> Editar</button>
-                    <button class="btn-apagar" onclick="apagarPostoAdmin('${posto.id}')"><i class="fas fa-trash"></i> Apagar</button>
-                </div>
-            </div>
-        `;
-  });
-
-  listaContainer.innerHTML = html;
-}
-
-// 5. APAGA POSTO DO BANCO
-async function apagarPostoAdmin(codigoPosto) {
-  if (
-    !confirm(
-      "Tem certeza que deseja apagar este posto? Esta ação é irreversível.",
-    )
-  )
-    return;
-
-  const btn = document.querySelector(
-    `.admin-card-posto[data-id="${codigoPosto}"] .btn-apagar`,
-  );
-  if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Apagando...`;
-
-  const { error } = await clienteSupabase
-    .from("postos")
-    .delete()
-    .eq("codigo_posto", codigoPosto);
-
-  if (error) {
-    console.error("Erro ao apagar posto:", error);
-    if (typeof showAlert === "function")
-      showAlert("Erro ao apagar o posto.", "error");
-    if (btn) btn.innerHTML = `<i class="fas fa-trash"></i> Apagar`;
-    return;
-  }
-
-  if (typeof showAlert === "function")
-    showAlert("Posto apagado com sucesso!", "success");
-  if (typeof buscarPostosDoBanco === "function") buscarPostosDoBanco();
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const navButtons = document.querySelectorAll("#mainNav .nav-item");
-  const views = document.querySelectorAll(".view");
-
-  navButtons.forEach((button) => {
-    button.addEventListener("click", (e) => {
-      e.preventDefault();
-
-      const targetId = button.getAttribute("data-target");
-      if (!targetId) return;
-
-      // 1. Remove a classe 'active' de todos os botões do menu
-      navButtons.forEach((btn) => btn.classList.remove("active"));
-
-      // 2. Adiciona a classe 'active' apenas ao botão clicado
-      button.classList.add("active");
-
-      // 3. Esconde todas as abas/views
-      views.forEach((view) => view.classList.remove("active"));
-
-      // 4. Exibe a aba/view correspondente ao data-target
-      const targetView = document.getElementById(targetId);
-      if (targetView) {
-        targetView.classList.add("active");
-      }
-    });
-  });
-});
-
-// Supondo que 'stations' seja a sua array com os dados dos postos
-function updateCityCounters(stations) {
-  // Filtra e conta quantos postos existem em cada cidade
-  const countVeraCruz = stations.filter(posto => posto.cidade === 'Vera Cruz').length;
-  const countSantaCruz = stations.filter(posto => posto.cidade === 'Santa Cruz do Sul').length;
-
-  // Busca os elementos no HTML
-  const spanVeraCruz = document.getElementById('counter-vera-cruz');
-  const spanSantaCruz = document.getElementById('counter-santa-cruz');
-
-  // Atualiza os textos se os elementos existirem na tela
-  if (spanVeraCruz) {
-    spanVeraCruz.textContent = `${countVeraCruz} posto${countVeraCruz !== 1 ? 's' : ''}`;
-  }
-  if (spanSantaCruz) {
-    spanSantaCruz.textContent = `${countSantaCruz} posto${countSantaCruz !== 1 ? 's' : ''}`;
-  }
-}
-
-// Exemplo de uso: Chame a função passando a sua lista de postos
-// updateCityCounters(meusPostosArray);
+// ==================== 19. BOOT ====================
+buscarPostosDoBanco();
+updateCompareBar();
