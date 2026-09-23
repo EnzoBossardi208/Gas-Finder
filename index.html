@@ -815,6 +815,108 @@
               </button>
             </div>
 
+            <div
+              id="createStationSection"
+              class="report-card"
+              style="display: none"
+            >
+              <h3 style="margin-bottom: 0.5rem">
+                <i class="fas fa-plus-circle"></i> Adicionar Meu Posto
+              </h3>
+              <p style="margin-bottom: 1.25rem; color: var(--text2)">
+                Não encontrou o estabelecimento? Cadastre o seu posto. Ele fica
+                vinculado à sua conta automaticamente.
+              </p>
+
+              <div class="create-option-tag">
+                <span>Opção A</span> Preenchimento rápido via link
+              </div>
+              <div class="field">
+                <label class="field-text">Link do Google Maps</label>
+                <div class="maps-extract-row">
+                  <div class="field-wrap">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <input
+                      type="url"
+                      id="createStationMapsUrl"
+                      placeholder="Cole o link completo do posto no Google Maps"
+                    />
+                  </div>
+                  <button type="button" class="btn-outline" id="extractMapsBtn">
+                    <i class="fas fa-magic"></i> Extrair
+                  </button>
+                </div>
+                <p class="create-hint">
+                  Use o link completo (maps/place/...), não o atalho
+                  maps.app.goo.gl.
+                </p>
+              </div>
+
+              <div class="create-option-tag" style="margin-top: 1.25rem">
+                <span>Opção B</span> Preenchimento manual
+              </div>
+              <div class="field">
+                <label class="field-text">Nome do posto</label>
+                <div class="field-wrap">
+                  <i class="fas fa-gas-pump"></i>
+                  <input
+                    type="text"
+                    id="createStationName"
+                    placeholder="Ex: Auto Posto Central"
+                    required
+                  />
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-text">Bandeira</label>
+                <div class="field-wrap">
+                  <i class="fas fa-flag"></i>
+                  <select id="createStationBrand">
+                    <option value="Branca">Bandeira Branca</option>
+                    <option value="Ipiranga">Ipiranga</option>
+                    <option value="Shell">Shell</option>
+                    <option value="Petrobras">Petrobras</option>
+                    <option value="Ale">Ale</option>
+                    <option value="Texaco">Texaco</option>
+                    <option value="Boxter">Boxter</option>
+                    <option value="Outra">Outra</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-text">Cidade</label>
+                <div class="field-wrap">
+                  <i class="fas fa-city"></i>
+                  <select id="createStationCity"></select>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-text">Morada completa</label>
+                <div class="field-wrap">
+                  <i class="fas fa-road"></i>
+                  <input
+                    type="text"
+                    id="createStationAddress"
+                    placeholder="Rua, número, bairro"
+                  />
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-text">Link do Maps (confirmação)</label>
+                <div class="field-wrap">
+                  <i class="fas fa-link"></i>
+                  <input
+                    type="url"
+                    id="createStationMapsLink"
+                    placeholder="https://www.google.com/maps/place/..."
+                  />
+                </div>
+              </div>
+              <button class="btn-primary full" id="createStationBtn" style="margin-top: 0.5rem">
+                <i class="fas fa-plus"></i> Cadastrar meu posto
+              </button>
+            </div>
+
             <div id="manageStationSection" style="display: none">
               <div class="report-card">
                 <div

@@ -1247,6 +1247,45 @@ input:checked + .toggle-sw::after { transform: translateX(18px); }
 /* ===== MANAGE VIEW ===== */
 #manageStationSection .report-card { border-left: 4px solid var(--accent); }
 
+#createStationSection { border-left: 4px solid var(--blue); }
+.create-option-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 0.75rem;
+}
+.create-option-tag span {
+  display: inline-flex;
+  align-items: center;
+  background: var(--blue-light);
+  color: var(--blue);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+}
+.create-hint {
+  font-size: 0.75rem;
+  color: var(--text3);
+  margin-top: 0.4rem;
+}
+.maps-extract-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+.maps-extract-row .field-wrap { flex: 1; min-width: 0; }
+.maps-extract-row #extractMapsBtn {
+  white-space: nowrap;
+  padding: 0.75rem 1rem;
+  align-self: stretch;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .header-inner { padding: 0 1rem; }
@@ -1273,6 +1312,7 @@ input:checked + .toggle-sw::after { transform: translateX(18px); }
   .prices-grid-input { grid-template-columns: 1fr; }
   .update-prices-grid { grid-template-columns: 1fr; } /* Evita inputs esmagados ao atualizar preços */
   .modal-box { padding: 1.5rem; width: 95%; max-width: none; }
+  .maps-extract-row { flex-direction: column; }
 }
 
 /* =========================================
