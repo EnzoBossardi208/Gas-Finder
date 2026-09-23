@@ -20,6 +20,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || "suporte@gasfinder.com";
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
+const KEEP_CONNECTED_KEY = "gf_keep_connected";
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
@@ -27,8 +28,37 @@ if (!supabaseUrl || !supabaseKey) {
   );
 }
 
+function isKeepConnected() {
+  return localStorage.getItem(KEEP_CONNECTED_KEY) !== "false";
+}
+
+const supabaseAuthStorage = {
+  getItem(key) {
+    if (!isKeepConnected()) {
+      return sessionStorage.getItem(key) ?? localStorage.getItem(key);
+    }
+    return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+  },
+  setItem(key, value) {
+    if (!isKeepConnected()) {
+      sessionStorage.setItem(key, value);
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, value);
+    }
+  },
+  removeItem(key) {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  },
+};
+
 const clienteSupabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: true, autoRefreshToken: true },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    storage: supabaseAuthStorage,
+  },
 });
 
 /* ==================== 2. STATE ==================== */
