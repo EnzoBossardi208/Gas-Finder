@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "Logo-Gas-Finder-2.0.png",
+      "src": "/Logo-Gas-Finder-2.0.png",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any"

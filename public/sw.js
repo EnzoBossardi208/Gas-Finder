@@ -1,22 +1,18 @@
 // GasFinder RS — Service Worker
 // Versão: 1.1.0
 
-const CACHE_NAME = "gasfinder-v2";
-const ASSETS_TO_CACHE = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./app.js",
-  "./Logo-Gas-Finder-2.0.png",
-  "./manifest.json",
-];
+const CACHE_NAME = "gasfinder-v3";
+// Os arquivos de build (JS/CSS) saem com hash no nome a cada deploy, então
+// não dá para prever o nome exato aqui. Só pré-cacheamos a raiz; o resto
+// (JS/CSS/imagens com hash) é cacheado sob demanda no listener de "fetch".
+const ASSETS_TO_CACHE = ["./", "./index.html"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("[GasFinder SW] Cache criado:", CACHE_NAME);
-      return cache.addAll(ASSETS_TO_CACHE);
-    }),
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(ASSETS_TO_CACHE))
+      .catch((err) => console.error("[GasFinder SW] Falha ao pré-cachear:", err)),
   );
   self.skipWaiting();
 });
