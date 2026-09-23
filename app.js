@@ -45,6 +45,7 @@ let customPrices = safeParse(localStorage.getItem("gf_custom_prices"), {});
 let notifications = safeParse(localStorage.getItem("gf_notifications"), []);
 let managedStationId = localStorage.getItem("gf_managed_station") || null;
 let authBootstrapped = false;
+let createStationCoords = { lat: null, lng: null };
 
 /* ==================== 3. DOM HELPERS ==================== */
 const $ = (id) => document.getElementById(id);
@@ -102,6 +103,7 @@ const noNotifications = $("noNotifications");
 const clearNotificationsBtn = $("clearNotificationsBtn");
 const claimStationSection = $("claimStationSection");
 const manageStationSection = $("manageStationSection");
+const createStationSection = $("createStationSection");
 const claimCity = $("claimCity");
 const claimStationSelect = $("claimStationSelect");
 const claimStationBtn = $("claimStationBtn");
@@ -311,21 +313,41 @@ async function vincularPostoAoDono(codigoPosto) {
 /* Cria novo posto no banco */
 async function criarNovoPostoNoBanco(dados) {
   try {
-    const codigoUnico = dados.cidade.substring(0, 3).toLowerCase() + "-" + Date.now();
+    if (!currentUser) {
+      showAlert("Você precisa estar logado para cadastrar um posto.", "error");
+      return null;
+    }
 
-    let linkFinalMaps = dados.linkMaps;
+    const nome = (dados.nome || "").trim();
+    const cidade = (dados.cidade || "").trim();
+    const bandeira = (dados.bandeira || dados.brand || "Branca").trim() || "Branca";
+    const endereco = (dados.endereco || dados.address || "").trim();
+    const linkMaps = (dados.linkMaps || dados.link_maps || dados.mapsLink || "").trim();
+
+    if (!nome || !cidade) {
+      showAlert("Informe o nome e a cidade do posto.", "error");
+      return null;
+    }
+
+    const codigoUnico = cidade.substring(0, 3).toLowerCase() + "-" + Date.now();
+
+    let linkFinalMaps = linkMaps;
     if (!linkFinalMaps) {
-      const busca = encodeURIComponent(`${dados.nome} ${dados.endereco || ""} ${dados.cidade}`);
+      const busca = encodeURIComponent(`${nome} ${endereco} ${cidade}`);
       linkFinalMaps = `https://www.google.com/maps/search/?api=1&query=${busca}`;
     }
 
+    const donoId = currentUser.role === "station_owner" ? currentUser.uid : isAdminUser() ? null : currentUser.uid;
+
     const novoPosto = {
       codigo_posto: codigoUnico,
-      cidade: dados.cidade,
-      nome: dados.nome,
-      bandeira: dados.bandeira || "Branca",
-      endereco: dados.endereco || "Endereço não informado",
+      cidade,
+      nome,
+      bandeira,
+      endereco: endereco || "Endereço não informado",
       link_maps: linkFinalMaps,
+      latitude: parseFloat(dados.lat || dados.latitude) || 0,
+      longitude: parseFloat(dados.lng || dados.longitude) || 0,
       gasolina_comum: 0,
       gasolina_aditivada: 0,
       etanol: 0,
@@ -333,7 +355,7 @@ async function criarNovoPostoNoBanco(dados) {
       diesel_s10: 0,
       has_promotion: false,
       opening_hours: "Horário comercial",
-      dono_id: isAdminUser() ? null : currentUser.uid,
+      dono_id: donoId,
     };
 
     const { error } = await clienteSupabase.from("postos").insert([novoPosto]);
@@ -345,6 +367,92 @@ async function criarNovoPostoNoBanco(dados) {
     handleError(err, "Erro ao criar o posto.");
     return null;
   }
+}
+
+function decodeMapsText(value) {
+  if (!value) return "";
+  const withSpaces = String(value).replace(/\+/g, " ");
+  try {
+    return decodeURIComponent(withSpaces);
+  } catch {
+    return withSpaces;
+  }
+}
+
+function inferBandeiraFromName(nome) {
+  const n = (nome || "").toLowerCase();
+  if (n.includes("ipiranga")) return "Ipiranga";
+  if (n.includes("shell")) return "Shell";
+  if (n.includes("petrobras") || n.includes("br ")) return "Petrobras";
+  if (/\bale\b/.test(n)) return "Ale";
+  if (n.includes("texaco")) return "Texaco";
+  if (n.includes("boxter")) return "Boxter";
+  return "";
+}
+
+function inferCidadeFromText(text) {
+  const hay = (text || "").toLowerCase();
+  return CIDADES_DISPONIVEIS.find((c) => hay.includes(c.toLowerCase())) || "";
+}
+
+/* Extrai nome, morada e coordenadas de um URL do Google Maps */
+function extrairDadosDoMaps(url) {
+  const resultado = { nome: "", endereco: "", linkMaps: "", lat: null, lng: null, cidade: "" };
+  if (!url || typeof url !== "string") return resultado;
+
+  const bruto = url.trim();
+  resultado.linkMaps = bruto;
+  if (!bruto) return resultado;
+
+  if (/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(bruto)) {
+    return resultado;
+  }
+
+  const decoded = decodeMapsText(bruto);
+
+  const placeMatch = decoded.match(/\/maps\/place\/([^/@?]+)/i);
+  if (placeMatch) {
+    const slug = decodeMapsText(placeMatch[1])
+      .replace(/[_/]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const dashParts = slug.split(/\s+-\s+/);
+    if (dashParts.length >= 2) {
+      resultado.nome = dashParts[0].trim();
+      resultado.endereco = dashParts.slice(1).join(" - ").trim();
+    } else {
+      const commaParts = slug.split(",").map((p) => p.trim()).filter(Boolean);
+      if (commaParts.length >= 2) {
+        resultado.nome = commaParts[0];
+        resultado.endereco = commaParts.slice(1).join(", ");
+      } else {
+        resultado.nome = slug;
+      }
+    }
+  }
+
+  if (!resultado.nome) {
+    const queryMatch = decoded.match(/[?&](?:q|query)=([^&]+)/i);
+    if (queryMatch) resultado.nome = decodeMapsText(queryMatch[1]).trim();
+  }
+
+  const atMatch = decoded.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (atMatch) {
+    resultado.lat = parseFloat(atMatch[1]);
+    resultado.lng = parseFloat(atMatch[2]);
+  }
+
+  if (resultado.lat == null) {
+    const dataMatch = decoded.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+    if (dataMatch) {
+      resultado.lat = parseFloat(dataMatch[1]);
+      resultado.lng = parseFloat(dataMatch[2]);
+    }
+  }
+
+  resultado.cidade = inferCidadeFromText(`${resultado.nome} ${resultado.endereco}`);
+  return resultado;
 }
 
 /* Apaga posto (admin) */
@@ -529,7 +637,10 @@ if (registerForm) {
       const { data, error } = await clienteSupabase.auth.signUp({
         email,
         password: pass,
-        options: { data: { nome: name } },
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { nome: name },
+        },
       });
       btn.textContent = original;
       if (error) throw error;
@@ -610,15 +721,15 @@ async function logout() {
 }
 
 clienteSupabase.auth.onAuthStateChange(async (event, session) => {
-  if (event === "SIGNED_OUT" || !session) {
-    if (event === "SIGNED_OUT") {
-      currentUser = null;
-      showScreen(loginScreen);
-    }
+  if (event === "SIGNED_OUT") {
+    currentUser = null;
+    showScreen(loginScreen);
     return;
   }
 
-  if (event === "INITIAL_SESSION" && !authBootstrapped && session.user) {
+  if (!session?.user) return;
+
+  if (!authBootstrapped && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
     authBootstrapped = true;
     await handleAuthenticatedUser(session.user);
   }
@@ -1144,31 +1255,54 @@ function populateReportCity() {
 }
 
 /* Manage view initialization */
+function populateCreateStationCities() {
+  const citySelect = $("createStationCity");
+  if (!citySelect) return;
+  const cities = CIDADES_DISPONIVEIS.length
+    ? CIDADES_DISPONIVEIS
+    : ["Vera Cruz", "Santa Cruz do Sul"];
+  const current = citySelect.value;
+  citySelect.innerHTML = cities
+    .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+    .join("");
+  if (current && cities.includes(current)) citySelect.value = current;
+}
+
+function setCreateStationVisible(visible) {
+  if (createStationSection) createStationSection.style.display = visible ? "block" : "none";
+  if (visible) populateCreateStationCities();
+}
+
 function initManageView() {
   if (!manageStationSection || !claimStationSection) return;
-  // If user is station_owner, show their managed station or claim UI
   if (!currentUser) return;
   if (currentUser.role === "station_owner") {
-    // find station owned by user
     const owned = getTodosPostos().find((p) => p.dono_id === currentUser.uid);
     if (owned) {
       manageStationSection.style.display = "block";
       claimStationSection.style.display = "none";
+      setCreateStationVisible(false);
       managedStationName.textContent = owned.name;
       managedStationId = owned.id;
       localStorage.setItem("gf_managed_station", owned.id);
     } else {
       manageStationSection.style.display = "none";
       claimStationSection.style.display = "block";
-      // populate claimStationSelect
-      claimStationSelect.innerHTML = getTodosPostos().map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} - ${escapeHtml(p.city)}</option>`).join("");
+      setCreateStationVisible(true);
+      if (claimStationSelect) {
+        claimStationSelect.innerHTML = getTodosPostos()
+          .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} - ${escapeHtml(p.city)}</option>`)
+          .join("");
+      }
     }
   } else if (isAdminUser()) {
     manageStationSection.style.display = "block";
     claimStationSection.style.display = "none";
+    setCreateStationVisible(false);
   } else {
     manageStationSection.style.display = "none";
     claimStationSection.style.display = "none";
+    setCreateStationVisible(false);
   }
 }
 
@@ -1179,6 +1313,102 @@ if (claimStationBtn) claimStationBtn.addEventListener("click", async () => {
   const success = await vincularPostoAoDono(id);
   if (success) initManageView();
 });
+
+function aplicarDadosExtraidosDoMaps() {
+  const url = ($("createStationMapsUrl")?.value || "").trim();
+  if (!url) {
+    showAlert("Cole o link do Google Maps para extrair os dados.");
+    return;
+  }
+
+  const dados = extrairDadosDoMaps(url);
+  createStationCoords = { lat: dados.lat, lng: dados.lng };
+
+  if ($("createStationMapsLink")) $("createStationMapsLink").value = dados.linkMaps || url;
+
+  if (/maps\.app\.goo\.gl|goo\.gl\/maps/i.test(url) && !dados.nome) {
+    showAlert("Este é um link curto. Abra no Maps e copie o endereço completo da barra (maps/place/...).");
+    return;
+  }
+
+  if (dados.nome && $("createStationName")) $("createStationName").value = dados.nome;
+  if (dados.endereco && $("createStationAddress")) $("createStationAddress").value = dados.endereco;
+
+  const bandeira = inferBandeiraFromName(dados.nome);
+  if (bandeira && $("createStationBrand")) $("createStationBrand").value = bandeira;
+
+  if (dados.cidade && $("createStationCity")) {
+    populateCreateStationCities();
+    $("createStationCity").value = dados.cidade;
+  }
+
+  if (dados.nome || dados.endereco) {
+    showAlert("Dados extraídos do link. Confira e complete o que faltar.", "success");
+  } else {
+    showAlert("Não foi possível ler o nome neste link. Preencha os campos manualmente.");
+  }
+}
+
+if ($("extractMapsBtn")) {
+  $("extractMapsBtn").addEventListener("click", (e) => {
+    e.preventDefault();
+    aplicarDadosExtraidosDoMaps();
+  });
+}
+
+if ($("createStationMapsUrl")) {
+  $("createStationMapsUrl").addEventListener("paste", () => {
+    setTimeout(aplicarDadosExtraidosDoMaps, 0);
+  });
+}
+
+if ($("createStationBtn")) {
+  $("createStationBtn").addEventListener("click", async () => {
+    if (!currentUser || currentUser.role !== "station_owner") {
+      showAlert("Apenas donos de posto podem cadastrar um estabelecimento.");
+      return;
+    }
+
+    const nome = ($("createStationName")?.value || "").trim();
+    const cidade = ($("createStationCity")?.value || "").trim();
+    const bandeira = ($("createStationBrand")?.value || "Branca").trim();
+    const endereco = ($("createStationAddress")?.value || "").trim();
+    const linkMaps = ($("createStationMapsLink")?.value || $("createStationMapsUrl")?.value || "").trim();
+
+    if (!nome || !cidade) {
+      showAlert("Preencha o nome e a cidade do posto.");
+      return;
+    }
+
+    const btn = $("createStationBtn");
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = "Cadastrando...";
+
+    const codigo = await criarNovoPostoNoBanco({
+      nome,
+      cidade,
+      bandeira,
+      endereco,
+      linkMaps,
+      lat: createStationCoords.lat,
+      lng: createStationCoords.lng,
+    });
+
+    btn.disabled = false;
+    btn.innerHTML = original;
+
+    if (codigo) {
+      managedStationId = codigo;
+      localStorage.setItem("gf_managed_station", codigo);
+      ["createStationName", "createStationAddress", "createStationMapsUrl", "createStationMapsLink"].forEach((id) => {
+        if ($(id)) $(id).value = "";
+      });
+      createStationCoords = { lat: null, lng: null };
+      initManageView();
+    }
+  });
+}
 
 /* Save manage changes (example: update opening hours) */
 if (saveManageBtn) saveManageBtn.addEventListener("click", async () => {
@@ -1299,14 +1529,15 @@ async function bootstrapApp() {
   }
 }
 
-/* Inicializa sessão se existir */
+/* Restaura sessão persistida sem disparar e-mail de confirmação */
 (async () => {
   try {
-    const { data } = await clienteSupabase.auth.getUser();
-    const user = data?.user;
-    if (user) {
+    const { data, error } = await clienteSupabase.auth.getSession();
+    if (error) throw error;
+    const user = data?.session?.user;
+    if (user && !authBootstrapped) {
       authBootstrapped = true;
-      await handleAuthenticatedUser(user, { skipRoleScreen: true });
+      await handleAuthenticatedUser(user);
     }
   } catch (e) {}
   bootstrapApp();
@@ -1318,6 +1549,7 @@ window.GF = {
   buscarPostosPorCidadeNoBanco,
   atualizarPrecosNoBanco,
   criarNovoPostoNoBanco,
+  extrairDadosDoMaps,
   vincularPostoAoDono,
   getTodosPostos,
   clienteSupabase,
